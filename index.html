@@ -205,6 +205,10 @@
     .table { width:100%; border-collapse:separate; border-spacing:0; font-size:13px; }
     .table th, .table td { padding:14px 10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
     .table th { color:#7b8798; font-size:11px; text-transform:uppercase; letter-spacing:.10em; font-weight:800; }
+    .table th.sortable { cursor:pointer; user-select:none; transition:color .18s ease; }
+    .table th.sortable:hover { color:#1d4ed8; }
+    .table th.sorted { color:#1d4ed8; }
+    .sort-mark { margin-left:5px; font-size:10px; letter-spacing:0; }
     .table td { color:#344054; }
     .table tbody tr {
       transition:background .18s ease, transform .18s ease, box-shadow .18s ease;
@@ -463,6 +467,7 @@
       screen: 'all',
       dateFrom: '',
       dateTo: '',
+      tableSort: {key:'position', dir:'asc'},
       models: new Set()
     };
     let priceChart, shareChart;
@@ -967,13 +972,65 @@
       return '<span class="badge badge-cold">baja</span>';
     }
 
+    function priceVariationValue(r, prev) {
+      if (!prev || r.promoPrice == null || prev.promoPrice == null) return null;
+      return r.promoPrice - prev.promoPrice;
+    }
+
+    function promoScore(r) {
+      return (r.discount || 0) + (r.installments || 0) * 1.5 + ((r.hasCoupon || '').toLowerCase() === 'si' ? 10 : 0);
+    }
+
+    function tableSortValue(r, prev, key) {
+      const currentPos = state.page === 'all' ? r.position : r.pagePosition;
+      if (key === 'position') return currentPos || 9999;
+      if (key === 'brand') return r.brand || '';
+      if (key === 'model') return r.name || '';
+      if (key === 'price') return r.promoPrice ?? Number.POSITIVE_INFINITY;
+      if (key === 'priceVariation') return priceVariationValue(r, prev) ?? Number.POSITIVE_INFINITY;
+      if (key === 'promo') return promoScore(r);
+      if (key === 'installments') return r.installments || 0;
+      if (key === 'coupon') return (r.hasCoupon || '').toLowerCase() === 'si' ? 1 : 0;
+      return '';
+    }
+
+    function sortProducts(data, prevMap) {
+      const {key, dir} = state.tableSort;
+      const direction = dir === 'asc' ? 1 : -1;
+      return data.slice().sort((a,b) => {
+        const av = tableSortValue(a, prevMap.get(a.sku), key);
+        const bv = tableSortValue(b, prevMap.get(b.sku), key);
+        if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * direction || ((a.position || 999) - (b.position || 999));
+        return String(av).localeCompare(String(bv), 'es') * direction || ((a.position || 999) - (b.position || 999));
+      });
+    }
+
+    function sortHeader(label, key) {
+      const active = state.tableSort.key === key;
+      const mark = active ? (state.tableSort.dir === 'asc' ? '▲' : '▼') : '';
+      return `<th class="sortable ${active ? 'sorted' : ''}" data-sort="${key}">${label}${mark ? `<span class="sort-mark">${mark}</span>` : ''}</th>`;
+    }
+
+    function bindTableSort() {
+      document.querySelectorAll('#productTable th[data-sort]').forEach(th => {
+        th.onclick = () => {
+          const key = th.dataset.sort;
+          state.tableSort = {
+            key,
+            dir: state.tableSort.key === key && state.tableSort.dir === 'asc' ? 'desc' : 'asc'
+          };
+          renderProductTable();
+        };
+      });
+    }
+
     function renderProductTable() {
       const all = filteredRows();
       const latestRows = filteredRows({latestOnly:true});
       const latestId = latestRunId(latestRows);
       const previousId = previousRunId(all, latestId);
       const prevMap = previousBySku(all, previousId);
-      const latest = latestRows.slice().sort((a,b) => (a.position || 999) - (b.position || 999)).slice(0, 20);
+      const latest = sortProducts(latestRows, prevMap).slice(0, 20);
       const rowsHtml = latest.map(r => `
         <tr>
           <td><span class="pill">#${state.page === 'all' ? r.position : r.pagePosition}</span></td>
@@ -986,7 +1043,17 @@
           <td>${(r.hasCoupon || 'No').toLowerCase() === 'si' ? '<span class="badge badge-good">cupon</span>' : '<span class="badge badge-cold">sin cupon</span>'}</td>
         </tr>
       `).join('');
-      document.getElementById('productTable').innerHTML = `<table class="table"><thead><tr><th>Pos</th><th>Marca</th><th>Modelo</th><th>Precio</th><th>Var. precio</th><th>Promo</th><th>Cuotas</th><th>Cupon</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+      document.getElementById('productTable').innerHTML = `<table class="table"><thead><tr>${[
+        sortHeader('Pos', 'position'),
+        sortHeader('Marca', 'brand'),
+        sortHeader('Modelo', 'model'),
+        sortHeader('Precio', 'price'),
+        sortHeader('Var. precio', 'priceVariation'),
+        sortHeader('Promo', 'promo'),
+        sortHeader('Cuotas', 'installments'),
+        sortHeader('Cupon', 'coupon')
+      ].join('')}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
+      bindTableSort();
     }
 
     function renderHeader() {
