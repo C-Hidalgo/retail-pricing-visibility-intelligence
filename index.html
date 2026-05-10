@@ -803,7 +803,10 @@
           animation:{duration:700, easing:'easeOutQuart'},
           plugins:{
             legend:{labels:{color:'#475467', usePointStyle:true, boxWidth:8, boxHeight:8}, position:'bottom'},
-            tooltip:{backgroundColor:'#ffffff', titleColor:'#101828', bodyColor:'#344054', borderColor:'rgba(15,23,42,.12)', borderWidth:1, padding:12, callbacks:{label:ctx => `${ctx.label}: ${ctx.parsed}%`}}
+            tooltip:{backgroundColor:'#ffffff', titleColor:'#101828', bodyColor:'#344054', borderColor:'rgba(15,23,42,.12)', borderWidth:1, padding:12, callbacks:{label:ctx => {
+              const count = entries[ctx.dataIndex]?.[1] || 0;
+              return `${ctx.label}: ${count} posiciones · ${ctx.parsed}%`;
+            }}}
           },
           cutout:'70%'
         }
