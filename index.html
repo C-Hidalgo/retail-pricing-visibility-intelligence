@@ -452,7 +452,7 @@
       return brandColors[brand] || palette[fallbackIndex % palette.length];
     }
     const state = {
-      store: payload.stores[0] || '',
+      store: 'all',
       page: 'all',
       brand: 'all',
       processor: 'all',
@@ -475,7 +475,20 @@
     const latestRunId = data => uniq(data.slice().sort(byRunTime).map(r => r.runId)).pop();
     const runLabels = data => uniq(data.slice().sort(byRunTime).map(r => r.runId));
     const pageLabel = () => state.page === 'all' ? 'todas las paginas' : `pagina ${state.page}`;
-    const storeLabel = store => store === 'Fravega' ? 'Frávega' : store;
+    const storeLabel = store => store === 'all' ? 'Todas las tiendas' : store === 'Fravega' ? 'Frávega' : store;
+    const scopedRows = () => state.store === 'all' ? rows.slice() : rows.filter(r => r.store === state.store);
+    const latestRowsByStore = data => {
+      if (state.store !== 'all') {
+        const run = latestRunId(data);
+        return data.filter(r => r.runId === run);
+      }
+      const latestByStore = new Map();
+      payload.stores.forEach(store => {
+        const storeData = data.filter(r => r.store === store);
+        latestByStore.set(store, latestRunId(storeData));
+      });
+      return data.filter(r => r.runId === latestByStore.get(r.store));
+    };
     const shortName = (text, limit=42) => {
       const value = String(text || '');
       return value.length > limit ? value.slice(0, limit - 1) + '…' : value;
@@ -487,7 +500,7 @@
     };
 
     function filteredRows({latestOnly=false} = {}) {
-      let data = rows.filter(r => r.store === state.store);
+      let data = scopedRows();
       if (state.page !== 'all') data = data.filter(r => r.page === Number(state.page));
       if (state.brand !== 'all') data = data.filter(r => r.brand === state.brand);
       if (state.processor !== 'all') data = data.filter(r => r.processorBrand === state.processor);
@@ -499,8 +512,7 @@
       if (state.dateFrom) data = data.filter(r => r.date >= state.dateFrom);
       if (state.dateTo) data = data.filter(r => r.date <= state.dateTo);
       if (latestOnly) {
-        const run = latestRunId(data);
-        data = data.filter(r => r.runId === run);
+        data = latestRowsByStore(data);
       }
       return data;
     }
@@ -525,14 +537,13 @@
 
     function tacticalListLimit() {
       if (state.page !== 'all') return 20;
-      const storeRows = rows.filter(r => r.store === state.store);
-      const latestId = latestRunId(storeRows);
-      const pageOneRows = storeRows.filter(r => r.runId === latestId && r.page === 1);
+      const storeRows = scopedRows();
+      const pageOneRows = latestRowsByStore(storeRows).filter(r => r.page === 1);
       return pageOneRows.length || 15;
     }
 
     function rowsForOptions(excludeKey) {
-      let data = rows.filter(r => r.store === state.store);
+      let data = scopedRows();
       if (state.page !== 'all') data = data.filter(r => r.page === Number(state.page));
       if (state.brand !== 'all' && excludeKey !== 'brand') data = data.filter(r => r.brand === state.brand);
       if (state.processor !== 'all' && excludeKey !== 'processor') data = data.filter(r => r.processorBrand === state.processor);
@@ -582,14 +593,21 @@
     }
 
     function renderFilters() {
-      const stores = payload.stores;
+      const stores = ['all', ...payload.stores];
       const storeTabs = document.getElementById('storeTabs');
       storeTabs.innerHTML = '';
       stores.forEach(store => {
-        const count = rows.filter(r => r.store === store && r.runId === latestRunId(rows.filter(x => x.store === store))).length;
+        const baseRows = store === 'all' ? rows : rows.filter(r => r.store === store);
+        const count = store === 'all'
+          ? payload.stores.reduce((sum, name) => {
+              const storeData = rows.filter(r => r.store === name);
+              const run = latestRunId(storeData);
+              return sum + storeData.filter(r => r.runId === run).length;
+            }, 0)
+          : baseRows.filter(r => r.runId === latestRunId(baseRows)).length;
         const btn = document.createElement('button');
         btn.className = 'tab' + (state.store === store ? ' active' : '');
-        btn.innerHTML = `<strong>${store}</strong><span>${count} posiciones</span>`;
+        btn.innerHTML = `<strong>${storeLabel(store)}</strong><span>${count} posiciones</span>`;
         btn.onclick = () => { state.store = store; state.brand = 'all'; resetTechFilters(); state.page = 'all'; state.models.clear(); render(); };
         storeTabs.appendChild(btn);
       });
@@ -602,7 +620,7 @@
         pageChips.appendChild(chip);
       });
 
-      const storeRows = rows.filter(r => r.store === state.store);
+      const storeRows = scopedRows();
       const brands = uniq(rowsForOptions('brand').map(r => r.brand)).sort();
       const brandChips = document.getElementById('brandChips');
       brandChips.innerHTML = '';
@@ -689,8 +707,8 @@
 
     function calcKpis() {
       const all = filteredRows();
-      const latestId = latestRunId(all);
-      const latest = all.filter(r => r.runId === latestId);
+      const latest = filteredRows({latestOnly:true});
+      const latestId = latestRunId(latest);
       const previousId = previousRunId(all, latestId);
       const previous = all.filter(r => r.runId === previousId);
       const counts = brandCounts(latest);
@@ -951,10 +969,11 @@
 
     function renderProductTable() {
       const all = filteredRows();
-      const latestId = latestRunId(all);
+      const latestRows = filteredRows({latestOnly:true});
+      const latestId = latestRunId(latestRows);
       const previousId = previousRunId(all, latestId);
       const prevMap = previousBySku(all, previousId);
-      const latest = all.filter(r => r.runId === latestId).slice().sort((a,b) => (a.position || 999) - (b.position || 999)).slice(0, 20);
+      const latest = latestRows.slice().sort((a,b) => (a.position || 999) - (b.position || 999)).slice(0, 20);
       const rowsHtml = latest.map(r => `
         <tr>
           <td><span class="pill">#${state.page === 'all' ? r.position : r.pagePosition}</span></td>
