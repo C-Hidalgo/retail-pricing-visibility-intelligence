@@ -965,30 +965,20 @@
       return `<span class="badge ${klass}">${amount}${variation ? ` (${variation})` : ''}</span>`;
     }
 
-    function promoBadge(r) {
-      const score = (r.discount || 0) + (r.installments || 0) * 1.5 + ((r.hasCoupon || '').toLowerCase() === 'si' ? 10 : 0);
-      if (score >= 35) return '<span class="badge badge-good">alta</span>';
-      if (score >= 18) return '<span class="badge badge-warn">media</span>';
-      return '<span class="badge badge-cold">baja</span>';
-    }
-
     function priceVariationValue(r, prev) {
       if (!prev || r.promoPrice == null || prev.promoPrice == null) return null;
       return r.promoPrice - prev.promoPrice;
     }
 
-    function promoScore(r) {
-      return (r.discount || 0) + (r.installments || 0) * 1.5 + ((r.hasCoupon || '').toLowerCase() === 'si' ? 10 : 0);
-    }
-
     function tableSortValue(r, prev, key) {
       const currentPos = state.page === 'all' ? r.position : r.pagePosition;
+      if (key === 'page') return r.page || 9999;
       if (key === 'position') return currentPos || 9999;
+      if (key === 'store') return r.store || '';
       if (key === 'brand') return r.brand || '';
       if (key === 'model') return r.name || '';
       if (key === 'price') return r.promoPrice ?? Number.POSITIVE_INFINITY;
       if (key === 'priceVariation') return priceVariationValue(r, prev) ?? Number.POSITIVE_INFINITY;
-      if (key === 'promo') return promoScore(r);
       if (key === 'installments') return r.installments || 0;
       if (key === 'coupon') return (r.hasCoupon || '').toLowerCase() === 'si' ? 1 : 0;
       return '';
@@ -1033,23 +1023,25 @@
       const latest = sortProducts(latestRows, prevMap).slice(0, 20);
       const rowsHtml = latest.map(r => `
         <tr>
+          <td>P${r.page || '-'}</td>
           <td><span class="pill">#${state.page === 'all' ? r.position : r.pagePosition}</span></td>
+          <td>${storeLabel(r.store)}</td>
           <td>${r.brand}</td>
           <td><a href="${r.url}" target="_blank">${r.name}</a></td>
           <td>${money(r.promoPrice)}</td>
           <td>${priceVariationBadge(r, prevMap.get(r.sku))}</td>
-          <td>${promoBadge(r)}</td>
           <td>${r.installments ? `<span class="badge badge-warn">${r.installments} cuotas</span>` : ''}</td>
           <td>${(r.hasCoupon || 'No').toLowerCase() === 'si' ? '<span class="badge badge-good">cupon</span>' : '<span class="badge badge-cold">sin cupon</span>'}</td>
         </tr>
       `).join('');
       document.getElementById('productTable').innerHTML = `<table class="table"><thead><tr>${[
-        sortHeader('Pos', 'position'),
+        sortHeader('Pagina', 'page'),
+        sortHeader('Posicion', 'position'),
+        sortHeader('Tienda', 'store'),
         sortHeader('Marca', 'brand'),
         sortHeader('Modelo', 'model'),
         sortHeader('Precio', 'price'),
         sortHeader('Var. precio', 'priceVariation'),
-        sortHeader('Promo', 'promo'),
         sortHeader('Cuotas', 'installments'),
         sortHeader('Cupon', 'coupon')
       ].join('')}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
