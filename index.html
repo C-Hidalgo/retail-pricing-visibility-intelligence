@@ -342,6 +342,16 @@
         <div class="chips" id="brandChips"></div>
         <div class="section-title">Procesador</div>
         <div class="chips" id="processorChips"></div>
+        <div class="section-title">Modelo procesador</div>
+        <div class="chips" id="processorModelChips"></div>
+        <div class="section-title">Memoria RAM</div>
+        <div class="chips" id="ramChips"></div>
+        <div class="section-title">Almacenamiento</div>
+        <div class="chips" id="storageChips"></div>
+        <div class="section-title">Tarjeta video</div>
+        <div class="chips" id="gpuChips"></div>
+        <div class="section-title">Pantalla</div>
+        <div class="chips" id="screenChips"></div>
         <div class="section-title">Rango de fechas</div>
         <div class="date-row">
           <input id="dateFrom" type="date">
@@ -444,6 +454,11 @@
       page: 'all',
       brand: 'all',
       processor: 'all',
+      processorModel: 'all',
+      ram: 'all',
+      storage: 'all',
+      gpu: 'all',
+      screen: 'all',
       dateFrom: '',
       dateTo: '',
       models: new Set()
@@ -458,12 +473,22 @@
     const latestRunId = data => uniq(data.slice().sort(byRunTime).map(r => r.runId)).pop();
     const runLabels = data => uniq(data.slice().sort(byRunTime).map(r => r.runId));
     const pageLabel = () => state.page === 'all' ? 'todas las paginas' : `pagina ${state.page}`;
+    const capacityValue = value => {
+      const text = String(value || '').toUpperCase();
+      const number = parseFloat(text.replace(',', '.')) || 0;
+      return text.includes('TB') ? number * 1024 : number;
+    };
 
     function filteredRows({latestOnly=false} = {}) {
       let data = rows.filter(r => r.store === state.store);
       if (state.page !== 'all') data = data.filter(r => r.page === Number(state.page));
       if (state.brand !== 'all') data = data.filter(r => r.brand === state.brand);
       if (state.processor !== 'all') data = data.filter(r => r.processorBrand === state.processor);
+      if (state.processorModel !== 'all') data = data.filter(r => r.processorModel === state.processorModel);
+      if (state.ram !== 'all') data = data.filter(r => r.ram === state.ram);
+      if (state.storage !== 'all') data = data.filter(r => r.storage === state.storage);
+      if (state.gpu !== 'all') data = data.filter(r => r.gpu === state.gpu);
+      if (state.screen !== 'all') data = data.filter(r => r.screen === state.screen);
       if (state.dateFrom) data = data.filter(r => r.date >= state.dateFrom);
       if (state.dateTo) data = data.filter(r => r.date <= state.dateTo);
       if (latestOnly) {
@@ -499,6 +524,30 @@
       return pageOneRows.length || 15;
     }
 
+    function rowsForOptions(excludeKey) {
+      let data = rows.filter(r => r.store === state.store);
+      if (state.page !== 'all') data = data.filter(r => r.page === Number(state.page));
+      if (state.brand !== 'all' && excludeKey !== 'brand') data = data.filter(r => r.brand === state.brand);
+      if (state.processor !== 'all' && excludeKey !== 'processor') data = data.filter(r => r.processorBrand === state.processor);
+      if (state.processorModel !== 'all' && excludeKey !== 'processorModel') data = data.filter(r => r.processorModel === state.processorModel);
+      if (state.ram !== 'all' && excludeKey !== 'ram') data = data.filter(r => r.ram === state.ram);
+      if (state.storage !== 'all' && excludeKey !== 'storage') data = data.filter(r => r.storage === state.storage);
+      if (state.gpu !== 'all' && excludeKey !== 'gpu') data = data.filter(r => r.gpu === state.gpu);
+      if (state.screen !== 'all' && excludeKey !== 'screen') data = data.filter(r => r.screen === state.screen);
+      if (state.dateFrom) data = data.filter(r => r.date >= state.dateFrom);
+      if (state.dateTo) data = data.filter(r => r.date <= state.dateTo);
+      return data;
+    }
+
+    function resetTechFilters() {
+      state.processor = 'all';
+      state.processorModel = 'all';
+      state.ram = 'all';
+      state.storage = 'all';
+      state.gpu = 'all';
+      state.screen = 'all';
+    }
+
     function makeChip(label, active, onClick) {
       const btn = document.createElement('button');
       btn.className = 'chip' + (active ? ' active' : '');
@@ -516,6 +565,15 @@
       return btn;
     }
 
+    function renderChipGroup(elementId, options, activeValue, allLabel, onSelect, limit=18) {
+      const target = document.getElementById(elementId);
+      target.innerHTML = '';
+      target.appendChild(makeChip(allLabel, activeValue === 'all', () => onSelect('all')));
+      options.slice(0, limit).forEach(value => {
+        target.appendChild(makeChip(value, activeValue === value, () => onSelect(value)));
+      });
+    }
+
     function renderFilters() {
       const stores = payload.stores;
       const storeTabs = document.getElementById('storeTabs');
@@ -525,7 +583,7 @@
         const btn = document.createElement('button');
         btn.className = 'tab' + (state.store === store ? ' active' : '');
         btn.innerHTML = `<strong>${store}</strong><span>${count} slots</span>`;
-        btn.onclick = () => { state.store = store; state.brand = 'all'; state.processor = 'all'; state.page = 'all'; state.models.clear(); render(); };
+        btn.onclick = () => { state.store = store; state.brand = 'all'; resetTechFilters(); state.page = 'all'; state.models.clear(); render(); };
         storeTabs.appendChild(btn);
       });
 
@@ -538,17 +596,54 @@
       });
 
       const storeRows = rows.filter(r => r.store === state.store);
-      const brands = uniq(storeRows.map(r => r.brand)).sort();
+      const brands = uniq(rowsForOptions('brand').map(r => r.brand)).sort();
       const brandChips = document.getElementById('brandChips');
       brandChips.innerHTML = '';
       brandChips.appendChild(makeBrandChip('Todas', 'all', state.brand === 'all', () => { state.brand = 'all'; state.models.clear(); render(); }));
       brands.slice(0, 16).forEach(b => brandChips.appendChild(makeBrandChip(b, b, state.brand === b, () => { state.brand = b; state.models.clear(); render(); })));
 
-      const processors = uniq(storeRows.map(r => r.processorBrand)).sort();
-      const processorChips = document.getElementById('processorChips');
-      processorChips.innerHTML = '';
-      processorChips.appendChild(makeChip('Todos', state.processor === 'all', () => { state.processor = 'all'; render(); }));
-      processors.forEach(p => processorChips.appendChild(makeChip(p, state.processor === p, () => { state.processor = p; render(); })));
+      const processors = uniq(rowsForOptions('processor').map(r => r.processorBrand)).sort();
+      renderChipGroup('processorChips', processors, state.processor, 'Todos', value => {
+        state.processor = value;
+        state.processorModel = 'all';
+        state.models.clear();
+        render();
+      }, 12);
+
+      const processorModels = uniq(rowsForOptions('processorModel').map(r => r.processorModel)).sort();
+      renderChipGroup('processorModelChips', processorModels, state.processorModel, 'Todos', value => {
+        state.processorModel = value;
+        state.models.clear();
+        render();
+      }, 14);
+
+      const ramOptions = uniq(rowsForOptions('ram').map(r => r.ram)).sort((a,b) => parseFloat(a) - parseFloat(b));
+      renderChipGroup('ramChips', ramOptions, state.ram, 'Todas', value => {
+        state.ram = value;
+        state.models.clear();
+        render();
+      }, 10);
+
+      const storageOptions = uniq(rowsForOptions('storage').map(r => r.storage)).sort((a,b) => capacityValue(a) - capacityValue(b));
+      renderChipGroup('storageChips', storageOptions, state.storage, 'Todos', value => {
+        state.storage = value;
+        state.models.clear();
+        render();
+      }, 12);
+
+      const gpuOptions = uniq(rowsForOptions('gpu').map(r => r.gpu)).sort();
+      renderChipGroup('gpuChips', gpuOptions, state.gpu, 'Todas', value => {
+        state.gpu = value;
+        state.models.clear();
+        render();
+      }, 10);
+
+      const screenOptions = uniq(rowsForOptions('screen').map(r => r.screen)).sort((a,b) => parseFloat(a) - parseFloat(b));
+      renderChipGroup('screenChips', screenOptions, state.screen, 'Todas', value => {
+        state.screen = value;
+        state.models.clear();
+        render();
+      }, 10);
 
       const dates = uniq(storeRows.map(r => r.date)).sort();
       const from = document.getElementById('dateFrom');
