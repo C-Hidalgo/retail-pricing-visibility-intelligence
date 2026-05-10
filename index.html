@@ -189,6 +189,7 @@
     .kpi:hover { transform:translateY(-2px); }
     .kpi-label { color:#7b8798; font-size:11px; text-transform:uppercase; letter-spacing:.14em; font-weight:800; }
     .kpi-value { margin-top:12px; font-size:32px; font-weight:820; letter-spacing:-.045em; color:#101828; }
+    .kpi-value.compact { font-size:20px; line-height:1.18; letter-spacing:-.025em; }
     .kpi-note { margin-top:7px; color:#667085; font-size:13px; }
     .kpi, .toolbar, .block {
       box-shadow:0 1px 2px rgba(15,23,42,.03), 0 12px 28px rgba(15,23,42,.05);
@@ -329,7 +330,7 @@
   <header>
     <div>
       <div class="eyebrow">Retail Pricing & Visibility Intelligence</div>
-      <h1>Hot Sale tactical command center</h1>
+      <h1>Hot Sale Tracking</h1>
       <p class="subtitle">Monitoreo de vidriera digital, pricing, promociones y movimientos competitivos por retailer.</p>
     </div>
   </header>
@@ -370,7 +371,6 @@
           </div>
           <span id="lastRun"></span>
         </div>
-        <div class="insights" id="tacticalInsights"></div>
         <div class="cards" id="kpis"></div>
         <div class="grid-2">
           <div class="panel block">
@@ -475,6 +475,11 @@
     const latestRunId = data => uniq(data.slice().sort(byRunTime).map(r => r.runId)).pop();
     const runLabels = data => uniq(data.slice().sort(byRunTime).map(r => r.runId));
     const pageLabel = () => state.page === 'all' ? 'todas las paginas' : `pagina ${state.page}`;
+    const storeLabel = store => store === 'Fravega' ? 'Frávega' : store;
+    const shortName = (text, limit=42) => {
+      const value = String(text || '');
+      return value.length > limit ? value.slice(0, limit - 1) + '…' : value;
+    };
     const capacityValue = value => {
       const text = String(value || '').toUpperCase();
       const number = parseFloat(text.replace(',', '.')) || 0;
@@ -584,7 +589,7 @@
         const count = rows.filter(r => r.store === store && r.runId === latestRunId(rows.filter(x => x.store === store))).length;
         const btn = document.createElement('button');
         btn.className = 'tab' + (state.store === store ? ' active' : '');
-        btn.innerHTML = `<strong>${store}</strong><span>${count} slots</span>`;
+        btn.innerHTML = `<strong>${store}</strong><span>${count} posiciones</span>`;
         btn.onclick = () => { state.store = store; state.brand = 'all'; resetTechFilters(); state.page = 'all'; state.models.clear(); render(); };
         storeTabs.appendChild(btn);
       });
@@ -691,65 +696,52 @@
       const counts = brandCounts(latest);
       const dominant = counts[0];
       const share = dominant ? dominant[1] / Math.max(latest.length, 1) * 100 : 0;
-      const promoSlots = latest.filter(r => (r.discount || 0) >= 15 || (r.installments || 0) >= 6 || (r.hasCoupon || '').toLowerCase() === 'si').length;
+      const promoPositions = latest.filter(r => (r.discount || 0) >= 15 || (r.installments || 0) >= 6 || (r.hasCoupon || '').toLowerCase() === 'si').length;
 
       const prevMap = previousBySku(all, previousId);
       const comparable = latest.filter(r => prevMap.has(r.sku));
-      let bestDrop = null, bestPos = null, wonSlots = 0, lostSlots = 0;
+      let bestDrop = null, bestDropRow = null, bestPos = null, wonPositions = 0, lostPositions = 0;
       comparable.forEach(r => {
         const prev = prevMap.get(r.sku);
         if (r.promoPrice != null && prev.promoPrice != null) {
           const deltaPrice = r.promoPrice - prev.promoPrice;
-          if (bestDrop === null || deltaPrice < bestDrop) bestDrop = deltaPrice;
+          if (deltaPrice < 0 && (bestDrop === null || deltaPrice < bestDrop)) {
+            bestDrop = deltaPrice;
+            bestDropRow = {current:r, previous:prev};
+          }
         }
         const currentPos = state.page === 'all' ? (r.position || 999) : (r.pagePosition || 999);
         const previousPos = state.page === 'all' ? (prev.position || 999) : (prev.pagePosition || 999);
         const deltaPos = currentPos - previousPos;
-        if (deltaPos < 0) wonSlots += 1;
-        if (deltaPos > 0) lostSlots += 1;
+        if (deltaPos < 0) wonPositions += 1;
+        if (deltaPos > 0) lostPositions += 1;
         if (bestPos === null || deltaPos < bestPos) bestPos = deltaPos;
       });
       const disappeared = previous.filter(r => !latest.some(x => x.sku === r.sku)).length;
+      const activeBrands = uniq(latest.map(r => r.brand)).length;
+      const dropPct = bestDropRow && bestDropRow.previous.promoPrice ? Math.abs(bestDrop / bestDropRow.previous.promoPrice * 100) : null;
       const tacticalKpis = [
-        {label:'Dominio visual', value:pct(share), note:dominant ? `${dominant[0]} lidera ${pageLabel()}` : 'Sin datos'},
-        {label:'Slots ocupados', value:latest.length, note:`${uniq(latest.map(r => r.brand)).length} marcas activas en ${pageLabel()}`},
-        {label:'Agresividad promo', value:pct(promoSlots / Math.max(latest.length, 1) * 100), note:'cupon, descuento fuerte o cuotas'},
-        {label:'Ataque de precio', value:bestDrop === null ? 'Sin lectura' : signedMoney(bestDrop), note:bestDrop < 0 ? 'mayor baja detectada' : 'sin baja relevante'}
+        {label:'Digital Share of Shelf', value:pct(share), note:dominant ? `${dominant[0]} lidera ${pageLabel()}` : 'Sin datos'},
+        {label:'Marcas activas', value:activeBrands, note:`${latest.length} posiciones ocupadas en ${pageLabel()}`},
+        {label:'Productos con beneficios comerciales', value:pct(promoPositions / Math.max(latest.length, 1) * 100), note:'cupon, cuotas o descuento relevante'},
+        {
+          label:'Producto con baja más relevante',
+          value:bestDropRow ? shortName(bestDropRow.current.name, 34) : 'Sin lectura',
+          note:bestDropRow ? `${money(bestDropRow.previous.promoPrice)} &rarr; ${money(bestDropRow.current.promoPrice)} · -${pct(dropPct)}` : 'sin baja relevante',
+          compact:true
+        }
       ];
       return tacticalKpis;
     }
 
     function renderKpis() {
       document.getElementById('kpis').innerHTML = calcKpis().map(k => `
-        <div class="panel kpi">
-          <div class="kpi-label">${k.label}</div>
-          <div class="kpi-value">${k.value}</div>
-          <div class="kpi-note">${k.note}</div>
-        </div>
+          <div class="panel kpi">
+            <div class="kpi-label">${k.label}</div>
+          <div class="kpi-value ${k.compact ? 'compact' : ''}">${k.value}</div>
+            <div class="kpi-note">${k.note}</div>
+          </div>
       `).join('');
-    }
-
-    function renderInsights() {
-      const all = filteredRows();
-      const latestId = latestRunId(all);
-      const latest = all.filter(r => r.runId === latestId);
-      const previousId = previousRunId(all, latestId);
-      const previous = all.filter(r => r.runId === previousId);
-      const counts = brandCounts(latest);
-      const prevCountMap = Object.fromEntries(brandCounts(previous));
-      const gaining = counts
-        .map(([brand, count]) => ({brand, delta: count - (prevCountMap[brand] || 0), count}))
-        .sort((a,b) => b.delta - a.delta)[0];
-      const strongPromo = latest
-        .filter(r => r.promoPrice != null)
-        .sort((a,b) => ((b.discount || 0) + (b.installments || 0) * 1.5 + ((b.hasCoupon || '').toLowerCase() === 'si' ? 10 : 0)) - ((a.discount || 0) + (a.installments || 0) * 1.5 + ((a.hasCoupon || '').toLowerCase() === 'si' ? 10 : 0)))[0];
-      const dominant = counts[0];
-      document.getElementById('tacticalInsights').innerHTML = [
-        `<div class="insight"><b>Territorio observado</b>${state.store} - ${pageLabel()} - ${latest.length} slots actuales</div>`,
-        `<div class="insight"><b>Marca que gana espacio</b>${gaining && gaining.delta > 0 ? `${gaining.brand} +${gaining.delta} slots` : 'Sin ganancia clara vs corrida anterior'}</div>`,
-        `<div class="insight"><b>Lectura comercial</b>${dominant ? `${dominant[0]} concentra ${pct(dominant[1] / Math.max(latest.length, 1) * 100)} del espacio visible` : 'Sin datos comparables'}</div>`,
-        `<div class="insight"><b>Mayor presion promo</b>${strongPromo ? `${strongPromo.brand} - ${strongPromo.discount ? pct(strongPromo.discount) : 'promo'} - ${strongPromo.installments || 0} cuotas` : 'Sin precios/promos visibles'}</div>`
-      ].join('');
     }
 
     function renderPriceChart() {
@@ -980,14 +972,13 @@
     function renderHeader() {
       const data = filteredRows({latestOnly:true});
       const last = data[0];
-      document.getElementById('viewTitle').textContent = `${state.store} - lectura tactica`;
-      document.getElementById('viewSubtitle').textContent = `${data.length} slots visibles - ${uniq(data.map(r => r.brand)).length} marcas - filtro pagina ${state.page === 'all' ? 'todas' : state.page}`;
+      document.getElementById('viewTitle').textContent = `${storeLabel(state.store)} resumen`;
+      document.getElementById('viewSubtitle').textContent = `${data.length} posiciones visibles - ${uniq(data.map(r => r.brand)).length} marcas - filtro pagina ${state.page === 'all' ? 'todas' : state.page}`;
       document.getElementById('lastRun').textContent = last ? `Ultima corrida ${last.date} ${last.time} - ${last.stage}` : '';
     }
 
     function renderVisuals() {
       renderHeader();
-      renderInsights();
       renderKpis();
       renderPriceChart();
       renderShareChart();
