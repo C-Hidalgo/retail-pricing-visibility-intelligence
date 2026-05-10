@@ -926,19 +926,16 @@
       `).join('');
     }
 
-    function movementBadge(r, prev) {
+    function priceVariationBadge(r, prev) {
       if (!prev) return '<span class="badge badge-good">nuevo</span>';
-      const currentPos = state.page === 'all' ? (r.position || 999) : (r.pagePosition || 999);
-      const previousPos = state.page === 'all' ? (prev.position || 999) : (prev.pagePosition || 999);
-      const posDelta = currentPos - previousPos;
-      let priceText = '';
-      if (r.promoPrice != null && prev.promoPrice != null && r.promoPrice !== prev.promoPrice) {
-        const delta = r.promoPrice - prev.promoPrice;
-        priceText = ` - ${delta < 0 ? 'baja' : 'sube'} ${pct(Math.abs(delta / prev.promoPrice * 100))}`;
-      }
-      if (posDelta < 0) return `<span class="badge badge-good">sube ${Math.abs(posDelta)}${priceText}</span>`;
-      if (posDelta > 0) return `<span class="badge badge-bad">baja ${Math.abs(posDelta)}${priceText}</span>`;
-      return `<span class="badge badge-cold">estable${priceText}</span>`;
+      if (r.promoPrice == null) return '<span class="badge badge-cold">sin precio</span>';
+      if (prev.promoPrice == null) return '<span class="badge badge-cold">sin anterior</span>';
+      const delta = r.promoPrice - prev.promoPrice;
+      if (delta === 0) return '<span class="badge badge-cold">sin cambio</span>';
+      const amount = `${delta < 0 ? '-' : '+'}${money(Math.abs(delta))}`;
+      const variation = prev.promoPrice ? `${delta < 0 ? '-' : '+'}${pct(Math.abs(delta / prev.promoPrice * 100))}` : '';
+      const klass = delta < 0 ? 'badge-good' : 'badge-bad';
+      return `<span class="badge ${klass}">${amount}${variation ? ` (${variation})` : ''}</span>`;
     }
 
     function promoBadge(r) {
@@ -960,13 +957,13 @@
           <td>${r.brand}</td>
           <td><a href="${r.url}" target="_blank">${r.name}</a></td>
           <td>${money(r.promoPrice)}</td>
-          <td>${movementBadge(r, prevMap.get(r.sku))}</td>
+          <td>${priceVariationBadge(r, prevMap.get(r.sku))}</td>
           <td>${promoBadge(r)}</td>
           <td>${r.installments ? `<span class="badge badge-warn">${r.installments} cuotas</span>` : ''}</td>
           <td>${(r.hasCoupon || 'No').toLowerCase() === 'si' ? '<span class="badge badge-good">cupon</span>' : '<span class="badge badge-cold">sin cupon</span>'}</td>
         </tr>
       `).join('');
-      document.getElementById('productTable').innerHTML = `<table class="table"><thead><tr><th>Pos</th><th>Marca</th><th>Modelo</th><th>Precio</th><th>Movimiento</th><th>Promo</th><th>Cuotas</th><th>Cupon</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+      document.getElementById('productTable').innerHTML = `<table class="table"><thead><tr><th>Pos</th><th>Marca</th><th>Modelo</th><th>Precio</th><th>Var. precio</th><th>Promo</th><th>Cuotas</th><th>Cupon</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
     }
 
     function renderHeader() {
