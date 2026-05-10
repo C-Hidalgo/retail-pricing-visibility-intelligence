@@ -246,7 +246,7 @@
     .bad { color:var(--red); }
     .warn { color:var(--amber); }
     .heat { overflow:auto; }
-    .heat-table { min-width:720px; width:100%; border-collapse:separate; border-spacing:6px; font-size:12px; }
+    .heat-table { min-width:560px; width:100%; border-collapse:separate; border-spacing:6px; font-size:12px; }
     .heat-table th { color:#7b8798; text-align:center; padding:7px; font-weight:800; }
     .heat-table td {
       padding:11px 10px;
@@ -263,6 +263,8 @@
       box-shadow:0 8px 18px rgba(15,23,42,.08);
     }
     .heat-table .model { text-align:left; color:#243044; max-width:300px; font-weight:520; }
+    .heat-position { display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+    .heat-position .delta { font-weight:850; font-size:12px; }
     .timeline { display:flex; flex-direction:column; gap:10px; }
     .event {
       display:grid;
@@ -395,7 +397,7 @@
             <div class="block-head">
               <div>
                 <h2>Heatmap de posiciones</h2>
-                <div class="hint">Verde mejora posicion, rojo pierde. Primera corrida queda neutra.</div>
+                <div class="hint">Posicion actual y movimiento acumulado vs primera corrida del rango.</div>
               </div>
             </div>
             <div class="heat" id="positionHeatmap"></div>
@@ -818,25 +820,35 @@
 
     function renderHeatmap() {
       const data = runSnapshots(filteredRows());
-      const runLabels = uniq(data.map(r => `${r.date} ${r.time}`)).slice(-5);
-      const latest = filteredRows({latestOnly:true}).slice().sort((a,b) => (a.position || 999) - (b.position || 999)).slice(0, tacticalListLimit());
-      let html = '<table class="heat-table"><thead><tr><th>Modelo</th>' + runLabels.map(l => `<th>${l}</th>`).join('') + '</tr></thead><tbody>';
+      const runIds = runLabels(data);
+      const firstId = runIds[0];
+      const latestId = runIds[runIds.length - 1];
+      const firstBySku = previousBySku(data, firstId);
+      const latest = data.filter(r => r.runId === latestId).slice().sort((a,b) => (a.position || 999) - (b.position || 999)).slice(0, tacticalListLimit());
+      let html = '<table class="heat-table"><thead><tr><th>Modelo</th><th>Posicion actual</th></tr></thead><tbody>';
       latest.forEach(model => {
         html += `<tr><td class="model">${model.brand}<br>${model.name.slice(0, 72)}</td>`;
-        let prev = null;
-        runLabels.forEach(label => {
-          const r = data.find(x => x.sku === model.sku && `${x.date} ${x.time}` === label);
-          const pos = r ? (state.page === 'all' ? r.position : r.pagePosition) : null;
-          let bg = '#f1f5f9';
-          let text = pos ? '#' + pos : '-';
-          if (prev !== null && pos !== null) {
-            const movement = prev - pos;
-            bg = movement > 0 ? 'rgba(5,150,105,.16)' : movement < 0 ? 'rgba(220,38,38,.12)' : 'rgba(0,150,214,.10)';
-            text = movement === 0 ? `#${pos} =` : `#${pos} ${movement > 0 ? '+' : ''}${movement}`;
+        const currentPos = state.page === 'all' ? model.position : model.pagePosition;
+        const first = firstBySku.get(model.sku);
+        const firstPos = first ? (state.page === 'all' ? first.position : first.pagePosition) : null;
+        let bg = '#f1f5f9';
+        let deltaText = '';
+        let deltaClass = '';
+        if (firstPos !== null && currentPos !== null) {
+          const movement = firstPos - currentPos;
+          if (movement > 0) {
+            bg = 'rgba(5,150,105,.16)';
+            deltaText = `+${movement}`;
+            deltaClass = 'good';
+          } else if (movement < 0) {
+            bg = 'rgba(220,38,38,.12)';
+            deltaText = `${movement}`;
+            deltaClass = 'bad';
+          } else {
+            bg = 'rgba(0,150,214,.08)';
           }
-          if (pos !== null) prev = pos;
-          html += `<td style="background:${bg}">${text}</td>`;
-        });
+        }
+        html += `<td style="background:${bg}"><span class="heat-position">#${currentPos || '-'}${deltaText ? `<span class="delta ${deltaClass}">${deltaText}</span>` : ''}</span></td>`;
         html += '</tr>';
       });
       html += '</tbody></table>';
