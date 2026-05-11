@@ -512,6 +512,7 @@
     const runLabels = data => uniq(data.slice().sort(byRunTime).map(r => r.runId));
     const pageLabel = () => state.page === 'all' ? 'todas las paginas' : `pagina ${state.page}`;
     const storeLabel = store => store === 'all' ? 'Todas las tiendas' : store === 'Fravega' ? 'Frávega' : store;
+    const modelKey = r => `${r.store}::${r.sku || r.url || r.name}`;
     const scopedRows = () => state.store === 'all' ? rows.slice() : rows.filter(r => r.store === state.store);
     const latestRowsByStore = data => {
       if (state.store !== 'all') {
@@ -715,19 +716,25 @@
       to.onchange = e => { state.dateTo = e.target.value; render(); };
 
       const modelSource = filteredRows({latestOnly:true}).slice().sort((a,b) => (a.position || 999) - (b.position || 999));
+      const priceAvailable = new Set(filteredRows().filter(r => r.promoPrice != null).map(modelKey));
       const models = [];
       const seen = new Set();
       modelSource.forEach(r => {
-        if (!seen.has(r.sku)) {
-          seen.add(r.sku);
+        const key = modelKey(r);
+        if (!seen.has(key)) {
+          seen.add(key);
           models.push(r);
         }
       });
-      if (!state.models.size) models.slice(0, 5).forEach(r => state.models.add(r.sku));
+      if (!state.models.size) {
+        const withPrice = models.filter(r => priceAvailable.has(modelKey(r)));
+        (withPrice.length ? withPrice : models).slice(0, 5).forEach(r => state.models.add(modelKey(r)));
+      }
       const modelChips = document.getElementById('modelChips');
       modelChips.innerHTML = '';
-      models.slice(0, 18).forEach(r => modelChips.appendChild(makeChip(`${r.brand} - #${r.position}`, state.models.has(r.sku), () => {
-        state.models.has(r.sku) ? state.models.delete(r.sku) : state.models.add(r.sku);
+      models.slice(0, 18).forEach(r => modelChips.appendChild(makeChip(`${state.store === 'all' ? storeLabel(r.store) + ' · ' : ''}${r.brand} - #${r.position}`, state.models.has(modelKey(r)), () => {
+        const key = modelKey(r);
+        state.models.has(key) ? state.models.delete(key) : state.models.add(key);
         render();
       })));
     }
@@ -801,16 +808,16 @@
 
     function renderPriceChart() {
       const data = filteredRows();
-      const snapshots = runSnapshots(data).filter(r => state.models.has(r.sku));
+      const snapshots = runSnapshots(data).filter(r => state.models.has(modelKey(r)));
       const labels = uniq(snapshots.map(r => `${r.date} ${r.time}`)).sort();
-      const skus = uniq(snapshots.map(r => r.sku));
-      const datasets = skus.map((sku, i) => {
-        const skuRows = snapshots.filter(r => r.sku === sku);
-        const name = skuRows[0]?.name || sku;
+      const modelKeys = uniq(snapshots.map(modelKey));
+      const datasets = modelKeys.map((key, i) => {
+        const skuRows = snapshots.filter(r => modelKey(r) === key);
+        const name = skuRows[0]?.name || key;
         const brand = skuRows[0]?.brand || '';
         const color = colorForBrand(brand, i);
         return {
-          label: `${brand} - ${name.slice(0, 34)}`,
+          label: `${state.store === 'all' ? storeLabel(skuRows[0]?.store) + ' · ' : ''}${brand} - ${name.slice(0, 34)}`,
           data: labels.map(label => {
             const r = skuRows.find(x => `${x.date} ${x.time}` === label);
             return r ? r.promoPrice : null;
