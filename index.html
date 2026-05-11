@@ -202,6 +202,29 @@
     h2 { margin:0; font-size:18px; letter-spacing:-.025em; color:#101828; }
     .hint { color:var(--muted); font-size:13px; margin-top:4px; }
     canvas { width:100%; max-height:360px; }
+    .chart-shell { position:relative; min-height:360px; }
+    .chart-shell canvas { min-height:320px; }
+    .chart-empty {
+      position:absolute;
+      inset:56px 22px 26px;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      color:#667085;
+      border:1px dashed rgba(15,23,42,.14);
+      border-radius:20px;
+      background:linear-gradient(180deg, rgba(248,250,252,.92), rgba(255,255,255,.86));
+      padding:24px;
+      font-size:13px;
+      line-height:1.5;
+    }
+    .chart-empty strong {
+      display:block;
+      color:#172033;
+      font-size:15px;
+      margin-bottom:4px;
+    }
     .table { width:100%; border-collapse:separate; border-spacing:0; font-size:13px; }
     .table th, .table td { padding:14px 10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
     .table th { color:#7b8798; font-size:11px; text-transform:uppercase; letter-spacing:.10em; font-weight:800; }
@@ -393,7 +416,15 @@
                 <div class="hint">Selecciona marca/modelo y pagina para leer pricing tactico dentro de la tienda.</div>
               </div>
             </div>
-            <canvas id="priceChart"></canvas>
+            <div class="chart-shell">
+              <canvas id="priceChart"></canvas>
+              <div class="chart-empty" id="priceChartEmpty">
+                <div>
+                  <strong>Sin precios válidos para graficar</strong>
+                  OnCity no entregó precios válidos para los modelos seleccionados en este rango.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         <div class="panel block">
@@ -792,7 +823,9 @@
           pointRadius:3,
           pointHoverRadius:6
         };
-      });
+      }).filter(dataset => dataset.data.some(value => value != null && Number(value) > 0));
+      const emptyState = document.getElementById('priceChartEmpty');
+      if (emptyState) emptyState.style.display = datasets.length ? 'none' : 'flex';
       if (priceChart) priceChart.destroy();
       priceChart = new Chart(document.getElementById('priceChart'), {
         type:'line',
