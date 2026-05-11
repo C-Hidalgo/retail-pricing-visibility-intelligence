@@ -501,7 +501,7 @@
       return brandColors[brand] || palette[fallbackIndex % palette.length];
     }
     const state = {
-      store: 'all',
+      store: payload.stores[0] || '',
       page: 'all',
       brand: 'all',
       processor: 'all',
@@ -525,20 +525,12 @@
     const latestRunId = data => uniq(data.slice().sort(byRunTime).map(r => r.runId)).pop();
     const runLabels = data => uniq(data.slice().sort(byRunTime).map(r => r.runId));
     const pageLabel = () => state.page === 'all' ? 'todas las paginas' : `pagina ${state.page}`;
-    const storeLabel = store => store === 'all' ? 'Todas las tiendas' : store === 'Fravega' ? 'Frávega' : store;
+    const storeLabel = store => store === 'Fravega' ? 'Frávega' : store;
     const modelKey = r => `${r.store}::${r.sku || r.url || r.name}`;
-    const scopedRows = () => state.store === 'all' ? rows.slice() : rows.filter(r => r.store === state.store);
+    const scopedRows = () => rows.filter(r => r.store === state.store);
     const latestRowsByStore = data => {
-      if (state.store !== 'all') {
-        const run = latestRunId(data);
-        return data.filter(r => r.runId === run);
-      }
-      const latestByStore = new Map();
-      payload.stores.forEach(store => {
-        const storeData = data.filter(r => r.store === store);
-        latestByStore.set(store, latestRunId(storeData));
-      });
-      return data.filter(r => r.runId === latestByStore.get(r.store));
+      const run = latestRunId(data);
+      return data.filter(r => r.runId === run);
     };
     const shortName = (text, limit=42) => {
       const value = String(text || '');
@@ -644,18 +636,12 @@
     }
 
     function renderFilters() {
-      const stores = ['all', ...payload.stores];
+      const stores = payload.stores;
       const storeTabs = document.getElementById('storeTabs');
       storeTabs.innerHTML = '';
       stores.forEach(store => {
-        const baseRows = store === 'all' ? rows : rows.filter(r => r.store === store);
-        const count = store === 'all'
-          ? payload.stores.reduce((sum, name) => {
-              const storeData = rows.filter(r => r.store === name);
-              const run = latestRunId(storeData);
-              return sum + storeData.filter(r => r.runId === run).length;
-            }, 0)
-          : baseRows.filter(r => r.runId === latestRunId(baseRows)).length;
+        const baseRows = rows.filter(r => r.store === store);
+        const count = baseRows.filter(r => r.runId === latestRunId(baseRows)).length;
         const btn = document.createElement('button');
         btn.className = 'tab' + (state.store === store ? ' active' : '');
         btn.innerHTML = `<strong>${storeLabel(store)}</strong><span>${count} posiciones</span>`;
@@ -746,7 +732,7 @@
       }
       const modelChips = document.getElementById('modelChips');
       modelChips.innerHTML = '';
-      models.slice(0, 18).forEach(r => modelChips.appendChild(makeChip(`${state.store === 'all' ? storeLabel(r.store) + ' · ' : ''}${r.brand} - #${r.position}`, state.models.has(modelKey(r)), () => {
+      models.slice(0, 18).forEach(r => modelChips.appendChild(makeChip(`${r.brand} - #${r.position}`, state.models.has(modelKey(r)), () => {
         const key = modelKey(r);
         state.models.has(key) ? state.models.delete(key) : state.models.add(key);
         render();
@@ -831,7 +817,7 @@
         const brand = skuRows[0]?.brand || '';
         const color = colorForBrand(brand, i);
         return {
-          label: `${state.store === 'all' ? storeLabel(skuRows[0]?.store) + ' · ' : ''}${brand} - ${name.slice(0, 34)}`,
+          label: `${brand} - ${name.slice(0, 34)}`,
           data: labels.map(label => {
             const r = skuRows.find(x => `${x.date} ${x.time}` === label);
             return r ? r.promoPrice : null;
@@ -849,7 +835,7 @@
       const canvas = document.getElementById('priceChart');
       const note = document.getElementById('priceChartNote');
       const latest = filteredRows({latestOnly:true});
-      const storesInScope = state.store === 'all' ? payload.stores : [state.store];
+      const storesInScope = [state.store];
       const storesWithPrice = new Set(latest.filter(r => r.promoPrice != null).map(r => r.store));
       const storesWithoutPrice = storesInScope.filter(store => !storesWithPrice.has(store));
       if (note) {
@@ -947,7 +933,7 @@
     function commercialEvents() {
       const events = [];
       const baseRows = filteredRows();
-      const stores = state.store === 'all' ? payload.stores : [state.store];
+      const stores = [state.store];
       stores.forEach(store => {
         const data = runSnapshots(baseRows.filter(r => r.store === store));
         const latestId = latestRunId(data);
@@ -956,7 +942,7 @@
         const latest = data.filter(r => r.runId === latestId);
         const previous = data.filter(r => r.runId === previousId);
         const prevMap = previousBySku(data, previousId);
-        const prefix = state.store === 'all' ? `${storeLabel(store)} · ` : '';
+        const prefix = '';
         latest.forEach(r => {
           const prev = prevMap.get(modelKey(r));
           if (!prev) {
