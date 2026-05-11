@@ -945,40 +945,45 @@
     }
 
     function commercialEvents() {
-      const data = runSnapshots(filteredRows());
-      const latestId = latestRunId(data);
-      const previousId = previousRunId(data, latestId);
-      if (!previousId) return [];
-      const latest = data.filter(r => r.runId === latestId);
-      const previous = data.filter(r => r.runId === previousId);
-      const prevMap = previousBySku(data, previousId);
       const events = [];
-      latest.forEach(r => {
-        const prev = prevMap.get(modelKey(r));
-        if (!prev) {
-          if ((r.pagePosition || r.position || 999) <= 10) {
-            events.push({time:r.time, type:'Nuevo top', brand:r.brand, title:`${r.brand} entra al top`, body:r.name, value:`#${state.page === 'all' ? r.position : r.pagePosition}`, url:r.url});
+      const baseRows = filteredRows();
+      const stores = state.store === 'all' ? payload.stores : [state.store];
+      stores.forEach(store => {
+        const data = runSnapshots(baseRows.filter(r => r.store === store));
+        const latestId = latestRunId(data);
+        const previousId = previousRunId(data, latestId);
+        if (!previousId) return;
+        const latest = data.filter(r => r.runId === latestId);
+        const previous = data.filter(r => r.runId === previousId);
+        const prevMap = previousBySku(data, previousId);
+        const prefix = state.store === 'all' ? `${storeLabel(store)} · ` : '';
+        latest.forEach(r => {
+          const prev = prevMap.get(modelKey(r));
+          if (!prev) {
+            if ((r.pagePosition || r.position || 999) <= 10) {
+              events.push({timestamp:r.timestamp, time:r.time, type:'Nuevo top', brand:r.brand, title:`${prefix}${r.brand} entra al top`, body:r.name, value:`#${state.page === 'all' ? r.position : r.pagePosition}`, url:r.url});
+            }
+            return;
           }
-          return;
-        }
-        const currentPos = state.page === 'all' ? (r.position || 999) : (r.pagePosition || 999);
-        const previousPos = state.page === 'all' ? (prev.position || 999) : (prev.pagePosition || 999);
-        const posDelta = currentPos - previousPos;
-        if (r.promoPrice != null && prev.promoPrice != null) {
-          const priceDelta = r.promoPrice - prev.promoPrice;
-          const pricePct = prev.promoPrice ? priceDelta / prev.promoPrice * 100 : 0;
-          if (priceDelta < 0) events.push({time:r.time, type:'Precio', brand:r.brand, title:`${r.brand} baja ${pct(Math.abs(pricePct))}`, body:r.name, value:money(priceDelta), url:r.url});
-          if (priceDelta > 0) events.push({time:r.time, type:'Precio', brand:r.brand, title:`${r.brand} sube ${pct(Math.abs(pricePct))}`, body:r.name, value:'+' + money(priceDelta), url:r.url});
-        }
-        if (posDelta < 0) events.push({time:r.time, type:'Posicion', brand:r.brand, title:`${r.brand} gana espacio`, body:r.name, value:`+${Math.abs(posDelta)} pos`, url:r.url});
-        if (posDelta > 0) events.push({time:r.time, type:'Posicion', brand:r.brand, title:`${r.brand} pierde espacio`, body:r.name, value:`-${Math.abs(posDelta)} pos`, url:r.url});
-        if ((prev.hasCoupon || 'No') !== (r.hasCoupon || 'No')) events.push({time:r.time, type:'Promo', brand:r.brand, title:`${r.brand} cambia cupon`, body:r.name, value:r.hasCoupon, url:r.url});
-        if ((prev.installments || 0) !== (r.installments || 0)) events.push({time:r.time, type:'Cuotas', brand:r.brand, title:`${r.brand} cambia financiacion`, body:r.name, value:r.installments ? `${r.installments} cuotas` : 'Sin dato', url:r.url});
+          const currentPos = state.page === 'all' ? (r.position || 999) : (r.pagePosition || 999);
+          const previousPos = state.page === 'all' ? (prev.position || 999) : (prev.pagePosition || 999);
+          const posDelta = currentPos - previousPos;
+          if (r.promoPrice != null && prev.promoPrice != null) {
+            const priceDelta = r.promoPrice - prev.promoPrice;
+            const pricePct = prev.promoPrice ? priceDelta / prev.promoPrice * 100 : 0;
+            if (priceDelta < 0) events.push({timestamp:r.timestamp, time:r.time, type:'Precio', brand:r.brand, title:`${prefix}${r.brand} baja ${pct(Math.abs(pricePct))}`, body:r.name, value:money(priceDelta), url:r.url});
+            if (priceDelta > 0) events.push({timestamp:r.timestamp, time:r.time, type:'Precio', brand:r.brand, title:`${prefix}${r.brand} sube ${pct(Math.abs(pricePct))}`, body:r.name, value:'+' + money(priceDelta), url:r.url});
+          }
+          if (posDelta < 0) events.push({timestamp:r.timestamp, time:r.time, type:'Posicion', brand:r.brand, title:`${prefix}${r.brand} gana espacio`, body:r.name, value:`+${Math.abs(posDelta)} pos`, url:r.url});
+          if (posDelta > 0) events.push({timestamp:r.timestamp, time:r.time, type:'Posicion', brand:r.brand, title:`${prefix}${r.brand} pierde espacio`, body:r.name, value:`-${Math.abs(posDelta)} pos`, url:r.url});
+          if ((prev.hasCoupon || 'No') !== (r.hasCoupon || 'No')) events.push({timestamp:r.timestamp, time:r.time, type:'Promo', brand:r.brand, title:`${prefix}${r.brand} cambia cupon`, body:r.name, value:r.hasCoupon, url:r.url});
+          if ((prev.installments || 0) !== (r.installments || 0)) events.push({timestamp:r.timestamp, time:r.time, type:'Cuotas', brand:r.brand, title:`${prefix}${r.brand} cambia financiacion`, body:r.name, value:r.installments ? `${r.installments} cuotas` : 'Sin dato', url:r.url});
+        });
+        previous.filter(r => !latest.some(x => modelKey(x) === modelKey(r))).forEach(r => {
+          events.push({timestamp:latest[0]?.timestamp || r.timestamp, time:latest[0]?.time || r.time, type:'Salida', brand:r.brand, title:`${prefix}${r.brand} desaparece de ${pageLabel()}`, body:r.name, value:'sale', url:r.url});
+        });
       });
-      previous.filter(r => !latest.some(x => modelKey(x) === modelKey(r))).forEach(r => {
-        events.push({time:latest[0]?.time || r.time, type:'Salida', brand:r.brand, title:`${r.brand} desaparece de ${pageLabel()}`, body:r.name, value:'sale', url:r.url});
-      });
-      return events.slice(0, tacticalListLimit());
+      return events.sort((a,b) => String(b.timestamp || '').localeCompare(String(a.timestamp || ''))).slice(0, tacticalListLimit());
     }
 
     function renderTimeline() {
