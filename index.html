@@ -421,7 +421,7 @@
               <div class="chart-empty" id="priceChartEmpty">
                 <div>
                   <strong>Sin precios válidos para graficar</strong>
-                  OnCity no entregó precios válidos para los modelos seleccionados en este rango.
+                  No hay precios válidos para los modelos seleccionados en este rango.
                 </div>
               </div>
             </div>
@@ -825,9 +825,11 @@
         };
       }).filter(dataset => dataset.data.some(value => value != null && Number(value) > 0));
       const emptyState = document.getElementById('priceChartEmpty');
+      const canvas = document.getElementById('priceChart');
       if (emptyState) emptyState.style.display = datasets.length ? 'none' : 'flex';
+      if (canvas) canvas.style.visibility = datasets.length ? 'visible' : 'hidden';
       if (priceChart) priceChart.destroy();
-      priceChart = new Chart(document.getElementById('priceChart'), {
+      priceChart = new Chart(canvas, {
         type:'line',
         data:{labels, datasets},
         options:{
