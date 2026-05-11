@@ -970,17 +970,32 @@
       return r.promoPrice - prev.promoPrice;
     }
 
+    function couponValue(r) {
+      if ((r.hasCoupon || '').toLowerCase() !== 'si') return 0;
+      if (r.couponDiscount && r.promoPrice) return Math.round(r.promoPrice * r.couponDiscount / 100);
+      return 1;
+    }
+
+    function couponBadge(r) {
+      if ((r.hasCoupon || '').toLowerCase() !== 'si') return '<span class="badge badge-cold">-</span>';
+      const value = couponValue(r);
+      if (value > 1) return `<span class="badge badge-good">-${money(value)}</span>`;
+      if (r.couponDiscount) return `<span class="badge badge-good">${r.couponDiscount}%</span>`;
+      return '<span class="badge badge-good">cupón</span>';
+    }
+
     function tableSortValue(r, prev, key) {
       const currentPos = state.page === 'all' ? r.position : r.pagePosition;
       if (key === 'page') return r.page || 9999;
       if (key === 'position') return currentPos || 9999;
       if (key === 'store') return r.store || '';
+      if (key === 'seller') return r.seller || '';
       if (key === 'brand') return r.brand || '';
       if (key === 'model') return r.name || '';
       if (key === 'price') return r.promoPrice ?? Number.POSITIVE_INFINITY;
       if (key === 'priceVariation') return priceVariationValue(r, prev) ?? Number.POSITIVE_INFINITY;
       if (key === 'installments') return r.installments || 0;
-      if (key === 'coupon') return (r.hasCoupon || '').toLowerCase() === 'si' ? 1 : 0;
+      if (key === 'coupon') return couponValue(r);
       return '';
     }
 
@@ -1026,18 +1041,20 @@
           <td>P${r.page || '-'}</td>
           <td><span class="pill">#${state.page === 'all' ? r.position : r.pagePosition}</span></td>
           <td>${storeLabel(r.store)}</td>
+          <td>${r.seller || ''}</td>
           <td>${r.brand}</td>
           <td><a href="${r.url}" target="_blank">${r.name}</a></td>
           <td>${money(r.promoPrice)}</td>
           <td>${priceVariationBadge(r, prevMap.get(r.sku))}</td>
           <td>${r.installments ? `<span class="badge badge-warn">${r.installments} CSI</span>` : ''}</td>
-          <td>${(r.hasCoupon || 'No').toLowerCase() === 'si' ? '<span class="badge badge-good">cupon</span>' : '<span class="badge badge-cold">sin cupon</span>'}</td>
+          <td>${couponBadge(r)}</td>
         </tr>
       `).join('');
       document.getElementById('productTable').innerHTML = `<table class="table"><thead><tr>${[
         sortHeader('Pagina', 'page'),
         sortHeader('Posicion', 'position'),
         sortHeader('Tienda', 'store'),
+        sortHeader('Seller', 'seller'),
         sortHeader('Marca', 'brand'),
         sortHeader('Modelo', 'model'),
         sortHeader('Precio', 'price'),
