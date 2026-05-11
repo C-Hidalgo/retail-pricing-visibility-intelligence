@@ -201,6 +201,19 @@
     .block-head { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:16px; }
     h2 { margin:0; font-size:18px; letter-spacing:-.025em; color:#101828; }
     .hint { color:var(--muted); font-size:13px; margin-top:4px; }
+    .chart-note {
+      display:none;
+      margin-top:8px;
+      color:#8a4b0f;
+      background:#fff7ed;
+      border:1px solid #fed7aa;
+      border-radius:999px;
+      padding:7px 11px;
+      font-size:12px;
+      font-weight:700;
+      width:max-content;
+      max-width:100%;
+    }
     canvas { width:100%; max-height:360px; }
     .chart-shell { position:relative; min-height:360px; }
     .chart-shell canvas { min-height:320px; }
@@ -414,6 +427,7 @@
               <div>
                 <h2>Evolucion de precios por modelo</h2>
                 <div class="hint">Selecciona marca/modelo y pagina para leer pricing tactico dentro de la tienda.</div>
+                <div class="chart-note" id="priceChartNote"></div>
               </div>
             </div>
             <div class="chart-shell">
@@ -833,6 +847,20 @@
       }).filter(dataset => dataset.data.some(value => value != null && Number(value) > 0));
       const emptyState = document.getElementById('priceChartEmpty');
       const canvas = document.getElementById('priceChart');
+      const note = document.getElementById('priceChartNote');
+      const latest = filteredRows({latestOnly:true});
+      const storesInScope = state.store === 'all' ? payload.stores : [state.store];
+      const storesWithPrice = new Set(latest.filter(r => r.promoPrice != null).map(r => r.store));
+      const storesWithoutPrice = storesInScope.filter(store => !storesWithPrice.has(store));
+      if (note) {
+        if (storesWithoutPrice.length && datasets.length) {
+          note.textContent = `Sin precio válido en última corrida: ${storesWithoutPrice.map(storeLabel).join(', ')}`;
+          note.style.display = 'block';
+        } else {
+          note.textContent = '';
+          note.style.display = 'none';
+        }
+      }
       if (emptyState) emptyState.style.display = datasets.length ? 'none' : 'flex';
       if (canvas) canvas.style.visibility = datasets.length ? 'visible' : 'hidden';
       if (priceChart) priceChart.destroy();
