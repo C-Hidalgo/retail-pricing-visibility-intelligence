@@ -141,6 +141,49 @@
       flex:0 0 auto;
     }
     .date-row { display:grid; grid-template-columns:1fr; gap:8px; }
+    .multi-select {
+      position:relative;
+      border:1px solid rgba(15,23,42,.09);
+      border-radius:16px;
+      background:rgba(255,255,255,.72);
+    }
+    .multi-select summary {
+      list-style:none;
+      cursor:pointer;
+      padding:11px 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      color:#344054;
+      font-weight:700;
+      user-select:none;
+    }
+    .multi-select summary::-webkit-details-marker { display:none; }
+    .multi-select summary::after {
+      content:"⌄";
+      color:#7b8798;
+      font-size:14px;
+    }
+    .multi-select[open] summary::after { transform:rotate(180deg); }
+    .multi-menu {
+      max-height:240px;
+      overflow:auto;
+      padding:6px;
+      border-top:1px solid rgba(15,23,42,.08);
+    }
+    .multi-option {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 7px;
+      border-radius:10px;
+      color:#344054;
+      font-size:13px;
+      cursor:pointer;
+    }
+    .multi-option:hover { background:#f8fafc; }
+    .multi-option input { width:15px; height:15px; accent-color:#2563eb; }
     input[type="date"] {
       width:100%;
       color:#f8fafc;
@@ -380,6 +423,11 @@
       <aside class="panel sidebar">
         <div class="section-title">Tienda</div>
         <div class="store-tabs" id="storeTabs"></div>
+        <div class="section-title">Seller</div>
+        <details class="multi-select" id="sellerDropdown">
+          <summary id="sellerSummary">Todos los sellers</summary>
+          <div class="multi-menu" id="sellerOptions"></div>
+        </details>
         <div class="section-title">Rango de fechas</div>
         <div class="date-row">
           <input id="dateFrom" type="date">
@@ -492,6 +540,7 @@
     }
     const state = {
       store: payload.stores[0] || '',
+      sellers: new Set(),
       page: 'all',
       brand: 'all',
       processor: 'all',
@@ -539,6 +588,7 @@
 
     function filteredRows({latestOnly=false} = {}) {
       let data = scopedRows();
+      if (state.sellers.size) data = data.filter(r => state.sellers.has(r.seller || 'Sin seller'));
       if (state.page !== 'all') data = data.filter(r => r.page === Number(state.page));
       if (state.brand !== 'all') data = data.filter(r => r.brand === state.brand);
       if (state.processor !== 'all') data = data.filter(r => r.processorBrand === state.processor);
@@ -582,6 +632,7 @@
 
     function rowsForOptions(excludeKey) {
       let data = scopedRows();
+      if (state.sellers.size && excludeKey !== 'seller') data = data.filter(r => state.sellers.has(r.seller || 'Sin seller'));
       if (state.page !== 'all') data = data.filter(r => r.page === Number(state.page));
       if (state.brand !== 'all' && excludeKey !== 'brand') data = data.filter(r => r.brand === state.brand);
       if (state.processor !== 'all' && excludeKey !== 'processor') data = data.filter(r => r.processorBrand === state.processor);
@@ -630,6 +681,50 @@
       });
     }
 
+    function renderSellerFilter() {
+      const sellers = uniq(rowsForOptions('seller').map(r => r.seller || 'Sin seller')).sort((a,b) => a.localeCompare(b, 'es'));
+      const sellerSet = new Set(sellers);
+      [...state.sellers].forEach(seller => {
+        if (!sellerSet.has(seller)) state.sellers.delete(seller);
+      });
+      const allSelected = !state.sellers.size || state.sellers.size === sellers.length;
+      const selectedCount = allSelected ? sellers.length : state.sellers.size;
+      const summary = document.getElementById('sellerSummary');
+      const options = document.getElementById('sellerOptions');
+      summary.textContent = allSelected ? 'Todos los sellers' : `${selectedCount} seller${selectedCount === 1 ? '' : 's'} seleccionados`;
+      options.innerHTML = '';
+
+      const allLabel = document.createElement('label');
+      allLabel.className = 'multi-option';
+      allLabel.innerHTML = `<input type="checkbox" ${allSelected ? 'checked' : ''}> <span>Seleccionar todo</span>`;
+      allLabel.querySelector('input').onchange = () => {
+        state.sellers.clear();
+        state.models.clear();
+        render();
+      };
+      options.appendChild(allLabel);
+
+      sellers.forEach(seller => {
+        const checked = allSelected || state.sellers.has(seller);
+        const label = document.createElement('label');
+        label.className = 'multi-option';
+        label.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''}> <span>${seller}</span>`;
+        label.querySelector('input').onchange = () => {
+          if (allSelected) {
+            state.sellers = new Set(sellers.filter(item => item !== seller));
+          } else if (state.sellers.has(seller)) {
+            state.sellers.delete(seller);
+          } else {
+            state.sellers.add(seller);
+          }
+          if (state.sellers.size === sellers.length) state.sellers.clear();
+          state.models.clear();
+          render();
+        };
+        options.appendChild(label);
+      });
+    }
+
     function renderFilters() {
       const stores = payload.stores;
       const storeTabs = document.getElementById('storeTabs');
@@ -640,9 +735,11 @@
         const btn = document.createElement('button');
         btn.className = 'tab' + (state.store === store ? ' active' : '');
         btn.innerHTML = `<strong>${storeLabel(store)}</strong><span>${count} posiciones</span>`;
-        btn.onclick = () => { state.store = store; state.brand = 'all'; resetTechFilters(); state.page = 'all'; state.models.clear(); render(); };
+        btn.onclick = () => { state.store = store; state.sellers.clear(); state.brand = 'all'; resetTechFilters(); state.page = 'all'; state.models.clear(); render(); };
         storeTabs.appendChild(btn);
       });
+
+      renderSellerFilter();
 
       const pageChips = document.getElementById('pageChips');
       pageChips.innerHTML = '';
