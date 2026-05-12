@@ -696,10 +696,11 @@
       const sellers = uniq(rowsForOptions('seller').map(r => r.seller || 'Sin seller')).sort((a,b) => a.localeCompare(b, 'es'));
       const sellerSet = new Set(sellers);
       [...state.sellers].forEach(seller => {
-        if (!sellerSet.has(seller)) state.sellers.delete(seller);
+        if (seller !== '__NONE__' && !sellerSet.has(seller)) state.sellers.delete(seller);
       });
-      const allSelected = !state.sellers.size || state.sellers.size === sellers.length;
-      const selectedCount = allSelected ? sellers.length : state.sellers.size;
+      const noneSelected = state.sellers.has('__NONE__');
+      const allSelected = !noneSelected && (!state.sellers.size || state.sellers.size === sellers.length);
+      const selectedCount = noneSelected ? 0 : (allSelected ? sellers.length : state.sellers.size);
       const summary = document.getElementById('sellerSummary');
       const options = document.getElementById('sellerOptions');
       summary.textContent = allSelected ? 'Todos los sellers' : `${selectedCount} seller${selectedCount === 1 ? '' : 's'} seleccionados`;
@@ -725,7 +726,11 @@
       allLabel.className = 'multi-option';
       allLabel.innerHTML = `<input type="checkbox" ${allSelected ? 'checked' : ''}> <span>Seleccionar todo</span>`;
       allLabel.querySelector('input').onchange = () => {
-        state.sellers.clear();
+        if (allSelected) {
+          state.sellers = new Set(['__NONE__']);
+        } else {
+          state.sellers.clear();
+        }
         state.models.clear();
         render();
       };
@@ -744,6 +749,7 @@
           } else if (state.sellers.has(seller)) {
             state.sellers.delete(seller);
           } else {
+            state.sellers.delete('__NONE__');
             state.sellers.add(seller);
           }
           if (state.sellers.size === sellers.length) state.sellers.clear();
