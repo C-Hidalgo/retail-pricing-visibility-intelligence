@@ -172,6 +172,16 @@
       padding:6px;
       border-top:1px solid rgba(15,23,42,.08);
     }
+    .multi-search {
+      width:100%;
+      margin-bottom:6px;
+      padding:9px 10px;
+      border:1px solid rgba(15,23,42,.09);
+      border-radius:12px;
+      background:#ffffff;
+      color:#1f2937;
+      font-size:13px;
+    }
     .multi-option {
       display:flex;
       align-items:center;
@@ -541,6 +551,7 @@
     const state = {
       store: payload.stores[0] || '',
       sellers: new Set(),
+      sellerSearch: '',
       page: 'all',
       brand: 'all',
       processor: 'all',
@@ -694,6 +705,22 @@
       summary.textContent = allSelected ? 'Todos los sellers' : `${selectedCount} seller${selectedCount === 1 ? '' : 's'} seleccionados`;
       options.innerHTML = '';
 
+      const search = document.createElement('input');
+      search.className = 'multi-search';
+      search.type = 'search';
+      search.placeholder = 'Buscar seller';
+      search.value = state.sellerSearch;
+      search.oninput = event => {
+        state.sellerSearch = event.target.value;
+        renderSellerFilter();
+        const input = document.querySelector('#sellerOptions .multi-search');
+        if (input) {
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
+        }
+      };
+      options.appendChild(search);
+
       const allLabel = document.createElement('label');
       allLabel.className = 'multi-option';
       allLabel.innerHTML = `<input type="checkbox" ${allSelected ? 'checked' : ''}> <span>Seleccionar todo</span>`;
@@ -704,7 +731,9 @@
       };
       options.appendChild(allLabel);
 
-      sellers.forEach(seller => {
+      const query = state.sellerSearch.trim().toLowerCase();
+      const visibleSellers = query ? sellers.filter(seller => seller.toLowerCase().includes(query)) : sellers;
+      visibleSellers.forEach(seller => {
         const checked = allSelected || state.sellers.has(seller);
         const label = document.createElement('label');
         label.className = 'multi-option';
@@ -723,6 +752,12 @@
         };
         options.appendChild(label);
       });
+      if (!visibleSellers.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'Sin sellers para esa busqueda.';
+        options.appendChild(empty);
+      }
     }
 
     function renderFilters() {
@@ -735,7 +770,7 @@
         const btn = document.createElement('button');
         btn.className = 'tab' + (state.store === store ? ' active' : '');
         btn.innerHTML = `<strong>${storeLabel(store)}</strong><span>${count} posiciones</span>`;
-        btn.onclick = () => { state.store = store; state.sellers.clear(); state.brand = 'all'; resetTechFilters(); state.page = 'all'; state.models.clear(); render(); };
+        btn.onclick = () => { state.store = store; state.sellers.clear(); state.sellerSearch = ''; state.brand = 'all'; resetTechFilters(); state.page = 'all'; state.models.clear(); render(); };
         storeTabs.appendChild(btn);
       });
 
