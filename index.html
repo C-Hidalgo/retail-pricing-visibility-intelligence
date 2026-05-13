@@ -904,8 +904,8 @@
             bestDropRow = {current:r, previous:prev};
           }
         }
-        const currentPos = state.page === 'all' ? (r.position || 999) : (r.pagePosition || 999);
-        const previousPos = state.page === 'all' ? (prev.position || 999) : (prev.pagePosition || 999);
+        const currentPos = r.position || 999;
+        const previousPos = prev.position || 999;
         const deltaPos = currentPos - previousPos;
         if (deltaPos < 0) wonPositions += 1;
         if (deltaPos > 0) lostPositions += 1;
@@ -1042,14 +1042,14 @@
         latest.forEach(r => {
           const prev = prevMap.get(modelKey(r));
           if (!prev) {
-            const currentPos = state.page === 'all' ? r.position : r.pagePosition;
+            const currentPos = r.position;
             if ((currentPos || 999) <= 10) {
               events.push({timestamp:r.timestamp, time:r.time, type:'Nuevo top', brand:r.brand, title:`${prefix}${r.brand} entra al top`, body:r.name, detail:`Aparece en posición #${currentPos}`, value:`#${currentPos}`, url:r.url});
             }
             return;
           }
-          const currentPos = state.page === 'all' ? (r.position || 999) : (r.pagePosition || 999);
-          const previousPos = state.page === 'all' ? (prev.position || 999) : (prev.pagePosition || 999);
+          const currentPos = r.position || 999;
+          const previousPos = prev.position || 999;
           const posDelta = currentPos - previousPos;
           if (r.promoPrice != null && prev.promoPrice != null) {
             const priceDelta = r.promoPrice - prev.promoPrice;
@@ -1068,7 +1068,7 @@
           }
         });
         previous.filter(r => !latest.some(x => modelKey(x) === modelKey(r))).forEach(r => {
-          const previousPos = state.page === 'all' ? r.position : r.pagePosition;
+          const previousPos = r.position;
           events.push({timestamp:latest[0]?.timestamp || r.timestamp, time:latest[0]?.time || r.time, type:'Salida', brand:r.brand, title:`${prefix}${r.brand} desaparece de ${pageLabel()}`, body:r.name, detail:`Antes estaba en #${previousPos}`, value:'sale', url:r.url});
         });
       });
@@ -1108,9 +1108,9 @@
     }
 
     function positionBadge(r, prev) {
-      const current = state.page === 'all' ? r.position : r.pagePosition;
+      const current = r.position;
       if (!prev) return `<span class="pill">#${current || '-'}</span>`;
-      const previous = state.page === 'all' ? prev.position : prev.pagePosition;
+      const previous = prev.position;
       if (!current || !previous) return `<span class="pill">#${current || '-'}</span>`;
       const movement = previous - current;
       if (movement === 0) return `<span class="pill">#${current}</span>`;
@@ -1139,7 +1139,7 @@
     }
 
     function tableSortValue(r, prev, key) {
-      const currentPos = state.page === 'all' ? r.position : r.pagePosition;
+      const currentPos = r.position;
       if (key === 'page') return r.page || 9999;
       if (key === 'position') return currentPos || 9999;
       if (key === 'store') return r.store || '';
