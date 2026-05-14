@@ -591,7 +591,7 @@
       store: activeDataset.stores[0] || '',
       sellers: new Set(),
       sellerSearch: '',
-      page: 'all',
+      page: 1,
       brand: 'all',
       category: 'Impresoras',
       subcategory: 'CISS',
@@ -736,7 +736,7 @@
       state.store = (nextDataset.stores || [])[0] || '';
       state.sellers.clear();
       state.sellerSearch = '';
-      state.page = 'all';
+      state.page = 1;
       state.brand = 'all';
       state.dateFrom = '';
       state.dateTo = '';
@@ -1288,7 +1288,7 @@
           },
           scales:{
             x:{ticks:{color:'#667085', callback:v => money(v)}, grid:{color:'rgba(15,23,42,.06)'}},
-            y:{ticks:{color:'#667085', autoSkip:false, font:{size:11}}, grid:{display:false}}
+            y:{ticks:{color:'#344054', autoSkip:false, font:{size:11, weight:800}}, grid:{display:false}}
           }
         }
       });
