@@ -301,13 +301,14 @@
     .chart-shell canvas { min-height:320px; }
     .price-rank-shell {
       position:relative;
-      min-height:360px;
+      min-height:150px;
+      max-height:360px;
       overflow:auto;
       padding-right:4px;
     }
     .price-rank-shell canvas {
       max-height:none;
-      min-height:320px;
+      min-height:0;
     }
     .chart-empty {
       position:absolute;
@@ -1243,7 +1244,7 @@
       const products = currentUniqueProducts();
       const canvas = document.getElementById('priceRankChart');
       if (!canvas) return;
-      const height = Math.max(320, products.length * 26);
+      const height = Math.max(140, products.length * 34 + 44);
       canvas.style.height = `${height}px`;
       if (priceRankChart) priceRankChart.destroy();
       priceRankChart = new Chart(canvas, {
