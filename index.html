@@ -493,7 +493,17 @@
       line-height:1.25;
       font-family:inherit;
       text-align:left;
+      cursor:pointer;
+      border-radius:8px;
+      transition:background .18s ease, opacity .18s ease, color .18s ease;
     }
+    .price-legend-item:hover { background:rgba(37,99,235,.06); }
+    .price-legend-item.focused {
+      color:#0f172a;
+      font-weight:850;
+      background:rgba(37,99,235,.08);
+    }
+    .price-legend-item.dimmed { opacity:.45; }
     .price-legend-pos {
       color:#98a2b3;
       font-size:10px;
@@ -916,6 +926,9 @@
     function colorForBrand(brand, fallbackIndex=0) {
       return brandColors[brand] || palette[fallbackIndex % palette.length];
     }
+    function focusTextColorForBrand(brand, fallbackColor) {
+      return brand === 'HP' ? '#0073A8' : fallbackColor;
+    }
     const state = {
       module: 'notebooks',
       previousOverviewModule: 'notebooks',
@@ -941,6 +954,7 @@
       tableSort: {key:'position', dir:'asc'},
       matchingSort: {key:'model', dir:'asc'},
       matchingSearch: '',
+      priceFocusKey: null,
       priceRankSort: 'asc',
       modelSearch: '',
       openDropdown: null,
@@ -1902,6 +1916,36 @@
       `).join('');
     }
 
+    const priceFocusLabelPlugin = {
+      id:'priceFocusLabel',
+      afterDatasetsDraw(chart) {
+        if (!state.priceFocusKey) return;
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.font = '700 11px Inter, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        chart.data.datasets.forEach((dataset, datasetIndex) => {
+          if (dataset.key !== state.priceFocusKey) return;
+          const meta = chart.getDatasetMeta(datasetIndex);
+          ctx.fillStyle = dataset.labelColor || dataset.borderColor;
+          let previousVisiblePrice = null;
+          dataset.data.forEach((value, index) => {
+            if (value == null || Number.isNaN(Number(value))) return;
+            const currentPrice = Math.round(Number(value));
+            const shouldShow = previousVisiblePrice === null || currentPrice !== previousVisiblePrice;
+            previousVisiblePrice = currentPrice;
+            if (!shouldShow) return;
+            const point = meta.data[index];
+            if (!point) return;
+            const {x, y} = point.getProps(['x', 'y'], true);
+            ctx.fillText(money(value), x, y - 9);
+          });
+        });
+        ctx.restore();
+      }
+    };
+
     function renderPriceChart() {
       const products = productOptionsForChart();
       ensureDefaultChartProducts(products);
@@ -1931,6 +1975,7 @@
           }),
           borderColor: color,
           backgroundColor: color,
+          labelColor: focusTextColorForBrand(brand, color),
           tension:.35,
           spanGaps:true,
           borderWidth:2.5,
@@ -1940,7 +1985,24 @@
       })
         .filter(dataset => dataset.data.some(value => value != null && Number(value) > 0))
         .sort((a,b) => (a.legendPosition || 999) - (b.legendPosition || 999) || a.label.localeCompare(b.label, 'es'));
-      const visibleDatasets = noneSelected ? [] : allDatasets.filter(dataset => !selectedModels || selectedModels.has(dataset.key));
+      let visibleDatasets = noneSelected ? [] : allDatasets.filter(dataset => !selectedModels || selectedModels.has(dataset.key));
+      if (state.priceFocusKey && !visibleDatasets.some(dataset => dataset.key === state.priceFocusKey)) {
+        state.priceFocusKey = null;
+      }
+      visibleDatasets = visibleDatasets.map(dataset => {
+        const focused = state.priceFocusKey && dataset.key === state.priceFocusKey;
+        const dimmed = state.priceFocusKey && dataset.key !== state.priceFocusKey;
+        const baseColor = dataset.borderColor;
+        return {
+          ...dataset,
+          borderColor: dimmed ? `${baseColor}35` : baseColor,
+          backgroundColor: dimmed ? `${baseColor}35` : baseColor,
+          borderWidth: dimmed ? 1.5 : 2.5,
+          pointRadius: dimmed ? 2 : 3,
+          pointHoverRadius: 6,
+          order: focused ? 0 : 1
+        };
+      });
       const emptyState = document.getElementById('priceChartEmpty');
       const canvas = document.getElementById('priceChart');
       const note = document.getElementById('priceChartNote');
@@ -1962,15 +2024,26 @@
       if (canvas) canvas.style.visibility = visibleDatasets.length ? 'visible' : 'hidden';
       if (legend) {
         legend.innerHTML = visibleDatasets.map(dataset => {
-          const label = `<span class="price-legend-name"><strong>${escapeHtml(dataset.legendBrand)}</strong> - ${escapeHtml(shortName(dataset.legendName, 46))}</span>`;
+          const focused = state.priceFocusKey && dataset.key === state.priceFocusKey;
+          const dimmed = state.priceFocusKey && dataset.key !== state.priceFocusKey;
+          const activeColor = focused ? dataset.labelColor : '';
+          const activeStyle = activeColor ? ` style="color:${activeColor}"` : '';
+          const label = `<span class="price-legend-name"${activeStyle}><strong${activeStyle}>${escapeHtml(dataset.legendBrand)}</strong> - ${escapeHtml(shortName(dataset.legendName, 46))}</span>`;
           return `
-            <div class="price-legend-item" title="${escapeHtml(`${dataset.legendBrand} - ${dataset.legendName}`)}">
+            <button class="price-legend-item ${focused ? 'focused' : ''} ${dimmed ? 'dimmed' : ''}" type="button" data-price-key="${escapeHtml(dataset.key)}" title="${escapeHtml(`${dataset.legendBrand} - ${dataset.legendName}`)}">
               <span class="price-legend-pos">#${dataset.legendPosition}</span>
-              <span class="price-legend-dot" style="background:${dataset.borderColor}"></span>
+              <span class="price-legend-dot" style="background:${dataset.backgroundColor}"></span>
               ${label}
-            </div>
+            </button>
           `;
         }).join('');
+        legend.querySelectorAll('[data-price-key]').forEach(item => {
+          item.onclick = () => {
+            const key = item.dataset.priceKey;
+            state.priceFocusKey = state.priceFocusKey === key ? null : key;
+            renderPriceChart();
+          };
+        });
       }
       if (priceChart) priceChart.destroy();
       priceChart = new Chart(canvas, {
@@ -1984,11 +2057,24 @@
             legend:{display:false},
             tooltip:{backgroundColor:'#ffffff', titleColor:'#101828', bodyColor:'#344054', borderColor:'rgba(15,23,42,.12)', borderWidth:1, padding:12, displayColors:true}
           },
+          onClick:(event, elements) => {
+            if (!elements.length) {
+              if (state.priceFocusKey) {
+                state.priceFocusKey = null;
+                renderPriceChart();
+              }
+              return;
+            }
+            const dataset = priceChart.data.datasets[elements[0].datasetIndex];
+            state.priceFocusKey = state.priceFocusKey === dataset.key ? null : dataset.key;
+            renderPriceChart();
+          },
           scales:{
             x:{ticks:{color:'#667085'}, grid:{color:'rgba(15,23,42,.06)'}},
             y:{ticks:{color:'#667085', callback:v => money(v)}, grid:{color:'rgba(15,23,42,.06)'}}
           }
-        }
+        },
+        plugins:[priceFocusLabelPlugin]
       });
     }
 
