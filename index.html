@@ -1038,7 +1038,10 @@
     const selectedSetHasNone = selectedSet => selectedSet.has('__NONE__');
     const selectedSetAll = (selectedSet, values) => !selectedSetHasNone(selectedSet) && (!selectedSet.size || selectedSet.size === values.length);
     const isPrintMode = () => state.module === 'impresion' || (state.module === 'matching' && state.matchingCatalog === 'impresion');
-    const pageValues = () => uniq(scopedRows().map(r => r.page)).sort((a,b) => a - b);
+    const pageValues = () => {
+      const data = state.module === 'matching' ? latestRowsPerStore(scopedRows()) : latestRowsByStore(scopedRows());
+      return uniq(data.map(r => r.page)).sort((a,b) => a - b);
+    };
     const pageLabel = () => {
       const values = pageValues();
       if (selectedSetHasNone(state.pages)) return 'sin páginas';
