@@ -747,9 +747,21 @@
       transform:rotate(45deg);
       pointer-events:none;
     }
-    .matching-table td:first-child { min-width:280px; }
-    .matching-table td:nth-child(2) { min-width:130px; }
-    .price-bar-cell { min-width:260px; }
+    .matching-table th:nth-child(1),
+    .matching-table td:nth-child(1) { width:70px; min-width:70px; }
+    .matching-table th:nth-child(2),
+    .matching-table td:nth-child(2) { width:86px; min-width:86px; }
+    .matching-table th:nth-child(3),
+    .matching-table td:nth-child(3) { min-width:360px; }
+    .matching-table th:nth-child(4),
+    .matching-table td:nth-child(4) { width:116px; min-width:116px; }
+    .matching-table th:nth-child(5),
+    .matching-table td:nth-child(5) { width:130px; min-width:130px; }
+    .matching-table th:nth-child(6),
+    .matching-table td:nth-child(6) { width:210px; min-width:210px; }
+    .matching-table th:nth-child(7),
+    .matching-table td:nth-child(7) { width:140px; min-width:140px; }
+    .price-bar-cell { min-width:210px; }
     .price-bar {
       height:10px;
       border-radius:999px;
@@ -1054,9 +1066,9 @@
 
     function filteredRows({latestOnly=false} = {}) {
       let data = scopedRows();
-      if (state.module !== 'matching' && state.sellers.size) data = data.filter(r => state.sellers.has(r.seller || 'Sin seller'));
-      if (state.module !== 'matching' && selectedSetHasNone(state.pages)) data = [];
-      if (state.module !== 'matching' && state.pages.size && !selectedSetHasNone(state.pages)) data = data.filter(r => state.pages.has(r.page));
+      if (state.sellers.size) data = data.filter(r => state.sellers.has(r.seller || 'Sin seller'));
+      if (selectedSetHasNone(state.pages)) data = [];
+      if (state.pages.size && !selectedSetHasNone(state.pages)) data = data.filter(r => state.pages.has(r.page));
       if (selectedSetHasNone(state.brands)) data = [];
       if (state.brands.size && !selectedSetHasNone(state.brands)) data = data.filter(r => state.brands.has(r.brand));
       if (isPrintMode()) {
@@ -1116,9 +1128,9 @@
 
     function rowsForOptions(excludeKey) {
       let data = scopedRows();
-      if (state.module !== 'matching' && state.sellers.size && excludeKey !== 'seller') data = data.filter(r => state.sellers.has(r.seller || 'Sin seller'));
-      if (state.module !== 'matching' && selectedSetHasNone(state.pages) && excludeKey !== 'page') data = [];
-      if (state.module !== 'matching' && state.pages.size && !selectedSetHasNone(state.pages) && excludeKey !== 'page') data = data.filter(r => state.pages.has(r.page));
+      if (state.sellers.size && excludeKey !== 'seller') data = data.filter(r => state.sellers.has(r.seller || 'Sin seller'));
+      if (selectedSetHasNone(state.pages) && excludeKey !== 'page') data = [];
+      if (state.pages.size && !selectedSetHasNone(state.pages) && excludeKey !== 'page') data = data.filter(r => state.pages.has(r.page));
       if (selectedSetHasNone(state.brands) && excludeKey !== 'brand') data = [];
       if (state.brands.size && !selectedSetHasNone(state.brands) && excludeKey !== 'brand') data = data.filter(r => state.brands.has(r.brand));
       if (isPrintMode()) {
@@ -1170,7 +1182,7 @@
       state.stores = new Set();
       state.sellers.clear();
       state.sellerSearch = '';
-      state.pages = new Set([1]);
+      state.pages = module === 'matching' ? new Set() : new Set([1]);
       state.brands = new Set();
       state.dateFrom = '';
       state.dateTo = '';
@@ -1528,20 +1540,20 @@
           </details>
           <div class="section-title">Tienda</div>
           <div class="store-tabs" id="storeTabs"></div>
-          ${state.module === 'matching' ? '' : `
           <div class="section-title">Seller</div>
           <details class="multi-select" id="sellerDropdown">
             <summary id="sellerSummary">Todos los sellers</summary>
             <div class="multi-menu" id="sellerOptions"></div>
           </details>
+          ${state.module === 'matching' ? '' : `
           <div class="section-title">Rango de fechas</div>
           <div class="date-row">
             <input id="dateFrom" type="date">
             <input id="dateTo" type="date">
           </div>
+          `}
           <div class="section-title">Página</div>
           <div class="chips" id="pageChips"></div>
-          `}
           <div class="section-title">Marca</div>
           <div class="chips" id="brandChips"></div>
           <div class="section-title">WiFi</div>
@@ -1560,20 +1572,20 @@
           ${catalogFilter}
           <div class="section-title">Tienda</div>
           <div class="store-tabs" id="storeTabs"></div>
-          ${state.module === 'matching' ? '' : `
           <div class="section-title">Seller</div>
           <details class="multi-select" id="sellerDropdown">
             <summary id="sellerSummary">Todos los sellers</summary>
             <div class="multi-menu" id="sellerOptions"></div>
           </details>
+          ${state.module === 'matching' ? '' : `
           <div class="section-title">Rango de fechas</div>
           <div class="date-row">
             <input id="dateFrom" type="date">
             <input id="dateTo" type="date">
           </div>
+          `}
           <div class="section-title">Página</div>
           <div class="chips" id="pageChips"></div>
-          `}
           <div class="section-title">Marca</div>
           <div class="chips" id="brandChips"></div>
           <div class="section-title">Procesador</div>
@@ -1616,7 +1628,7 @@
             state.stores = new Set();
             state.sellers.clear();
             state.sellerSearch = '';
-            state.pages = new Set([1]);
+            state.pages = new Set();
             state.brands = new Set();
             state.models.clear();
             state.modelSearch = '';
@@ -1647,7 +1659,7 @@
           state.modelSearch = '';
           state.brands = new Set();
           resetTechFilters();
-          state.pages = new Set([1]);
+          state.pages = new Set();
           state.models.clear();
           render();
         };
@@ -1686,7 +1698,7 @@
           state.modelSearch = '';
           state.brands = new Set();
           resetTechFilters();
-          state.pages = new Set([1]);
+          state.pages = state.module === 'matching' ? new Set() : new Set([1]);
           state.models.clear();
           render();
         };
@@ -1733,29 +1745,27 @@
         });
       }
 
-      if (state.module !== 'matching') {
-        renderSellerFilter();
+      renderSellerFilter();
 
-        const pageChips = document.getElementById('pageChips');
-        pageChips.innerHTML = '';
-        const pages = pageValues();
-        const allPagesSelected = selectedSetAll(state.pages, pages);
-        pageChips.appendChild(makeChip('Todas', allPagesSelected, () => {
-          state.pages = toggleMultiChip(state.pages, pages, 'all');
+      const pageChips = document.getElementById('pageChips');
+      pageChips.innerHTML = '';
+      const pages = pageValues();
+      const allPagesSelected = selectedSetAll(state.pages, pages);
+      pageChips.appendChild(makeChip('Todas', allPagesSelected, () => {
+        state.pages = toggleMultiChip(state.pages, pages, 'all');
+        state.models.clear();
+        render();
+      }));
+      pages.forEach(p => {
+        const active = allPagesSelected || state.pages.has(p);
+        const chip = makeChip(`P${p}`, active, () => {
+          state.pages = toggleMultiChip(state.pages, pages, p);
           state.models.clear();
           render();
-        }));
-        pages.forEach(p => {
-          const active = allPagesSelected || state.pages.has(p);
-          const chip = makeChip(`P${p}`, active, () => {
-            state.pages = toggleMultiChip(state.pages, pages, p);
-            state.models.clear();
-            render();
-          });
-          chip.classList.add('page-chip');
-          pageChips.appendChild(chip);
         });
-      }
+        chip.classList.add('page-chip');
+        pageChips.appendChild(chip);
+      });
 
       const storeRows = scopedRows();
       const brands = uniq(latestRowsByStore(rowsForOptions('brand')).map(r => r.brand)).sort();
@@ -2313,6 +2323,7 @@
         .toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\b(?:eyzen|rizen|rysen)\b/g, 'ryzen')
         .replace(/\b(notebook|impresora|multifuncion|multifuncional|entrega inmediata|importador oficial|oficial argentina|color|wifi|wi-fi)\b/g, ' ')
         .replace(/[^\w\s]/g, ' ')
         .replace(/\s+/g, ' ')
@@ -2354,9 +2365,26 @@
       ].filter(Boolean).join(' '));
     }
 
+    function processorQueryMatch(row, query) {
+      const normalizedQuery = normalizeMatchText(query);
+      const normalizedModel = normalizeMatchText(row.processorModel);
+      const normalizedBrand = normalizeMatchText(row.processorBrand);
+      const processorText = normalizeMatchText(`${row.processorBrand || ''} ${row.processorModel || ''} ${row.name || ''}`);
+      const ryzen = normalizedQuery.match(/\bryzen\s*([3579])\b/);
+      if (ryzen) return normalizedModel === `ryzen ${ryzen[1]}` || processorText.includes(`ryzen ${ryzen[1]}`);
+      const core = normalizedQuery.match(/\b(?:core\s*)?i\s*([3579])\b/);
+      if (core) return normalizedModel === `core i${core[1]}` || processorText.includes(`core i${core[1]}`) || processorText.includes(`i${core[1]}`);
+      const ultra = normalizedQuery.match(/\b(?:core\s*)?ultra\s*([3579])\b/);
+      if (ultra) return normalizedModel === `core ultra ${ultra[1]}` || processorText.includes(`ultra ${ultra[1]}`);
+      if (normalizedQuery === 'amd' || normalizedQuery === 'intel' || normalizedQuery === 'apple') return normalizedBrand === normalizedQuery;
+      return null;
+    }
+
     function matchesProductSearch(row, query) {
       const normalizedQuery = normalizeMatchText(query);
       if (!normalizedQuery) return true;
+      const processorMatch = processorQueryMatch(row, normalizedQuery);
+      if (processorMatch !== null) return processorMatch;
       const haystack = matchingSearchText(row);
       return normalizedQuery.split(' ').every(token => haystack.includes(token));
     }
@@ -2372,11 +2400,12 @@
         return;
       }
 
-      const matchingValue = item => {
+        const matchingValue = item => {
+        if (state.matchingSort.key === 'page') return item.page || Number.POSITIVE_INFINITY;
+        if (state.matchingSort.key === 'position') return item.position || Number.POSITIVE_INFINITY;
         if (state.matchingSort.key === 'store') return storeLabel(item.store);
         if (state.matchingSort.key === 'seller') return item.seller || '';
         if (state.matchingSort.key === 'price' || state.matchingSort.key === 'visualPrice') return item.promoPrice ?? Number.POSITIVE_INFINITY;
-        if (state.matchingSort.key === 'vsMin') return item.overMin ?? Number.POSITIVE_INFINITY;
         return `${item.brand || ''} ${item.name || ''}`;
       };
       const matchingDirection = state.matchingSort.dir === 'asc' ? 1 : -1;
@@ -2412,6 +2441,8 @@
         const productLink = item.url ? `<a href="${escapeHtml(item.url)}" target="_blank">${productName}</a>` : productName;
         return `
           <tr>
+            <td>${item.page ? `P${item.page}` : '-'}</td>
+            <td>${item.position ? `#${item.position}` : '-'}</td>
             <td>
               <strong>${productLink}</strong>
               <div class="hint">${item.brand || 'Sin marca'}${item.processorModel ? ` · ${item.processorModel}` : ''}${item.ram ? ` · ${item.ram}` : ''}${item.storage ? ` · ${item.storage}` : ''}</div>
@@ -2420,7 +2451,6 @@
             <td>${escapeHtml(item.seller || '')}</td>
             <td class="price-bar-cell"><div class="price-bar" style="width:${width}%"></div></td>
             <td><strong>${money(item.promoPrice)}</strong></td>
-            <td>${item.overMin > 0 ? `+${money(item.overMin)}` : '<span class="badge badge-good">menor precio</span>'}</td>
           </tr>
         `;
       }).join('');
@@ -2438,18 +2468,19 @@
           </div>
         </div>
         <div class="matching-search">
-          <input id="matchingSearch" type="search" value="${escapeHtml(state.matchingSearch)}" placeholder="Buscar marca, producto, SKU, procesador o tecnología..." autocomplete="off">
+          <input id="matchingSearch" type="search" value="${escapeHtml(state.matchingSearch)}" placeholder="Buscar marca, producto, SKU o procesador..." autocomplete="off">
         </div>
         <div class="hint" style="margin:-4px 0 14px">${storeCounts}${products.length > shownProducts.length ? ` · mostrando ${shownProducts.length} de ${products.length}` : ''}</div>
         ${shownProducts.length ? `
           <table class="table matching-table">
             <thead><tr>${[
+              matchingSortHeader('Página', 'page'),
+              matchingSortHeader('Posición', 'position'),
               matchingSortHeader('Equipo', 'model'),
               matchingSortHeader('Tienda', 'store'),
               matchingSortHeader('Seller', 'seller'),
               matchingSortHeader('Precio visual', 'visualPrice'),
-              matchingSortHeader('Último precio', 'price'),
-              matchingSortHeader('Vs mínimo visible', 'vsMin')
+              matchingSortHeader('Último precio', 'price')
             ].join('')}</tr></thead>
             <tbody>${rowsHtml}</tbody>
           </table>
