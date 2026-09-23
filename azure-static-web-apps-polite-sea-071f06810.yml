@@ -27,6 +27,7 @@ jobs:
 # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
       app_location: "/public" # App source code path
       api_location: "" # Api source code path - optional
-      output_location: "/" # Built app content directory - optional
+      output_location: "" # IMPORTANTE: Déjalo completamente VACÍO (remueve la barra diagonal)
+      skip_app_build: true # <-- AGREGA ESTA LÍNEA EXACTAMENTE AQUÍ
 ###### End of Repository/Build Configurations ######
 
